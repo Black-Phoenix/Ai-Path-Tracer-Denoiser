@@ -1,7 +1,7 @@
 #pragma once
 
 #include "intersections.h"
-#define MESH_NORMAL_VIEW true
+#define MESH_NORMAL_VIEW false
 #define FRESNELS true
 
 // CHECKITOUT

@@ -90,23 +90,25 @@ void saveImage() {
     for (int x = 0; x < width; x++) {
         for (int y = 0; y < height; y++) {
             int index = x + (y * width);
-			img_normal.setPixel(width - 1 - x, y, glm::vec3(glm::abs(renderState->normals[index]) * 100.f));
-			img_albedo.setPixel(width - 1 - x, y, glm::vec3(renderState->albedos[index] * 10.f));
 			img_rgb.setPixel(width - 1 - x, y, glm::vec3(renderState->image[index]) / samples);
-			img_depth.setPixel(width - 1 - x, y, glm::vec3(renderState->depth[index] * 10.f, 0, 0));
+			if (samples == 1) {
+				img_normal.setPixel(width - 1 - x, y, glm::vec3(glm::abs(renderState->normals[index]) * 100.f));
+				img_albedo.setPixel(width - 1 - x, y, glm::vec3(renderState->albedos[index] * 10.f));
+				img_depth.setPixel(width - 1 - x, y, glm::vec3(renderState->depth[index] * 10.f, 0, 0));
+			}
         }
     }
-	string depth_path = "../Training_data/Scene_1/" + to_string(iteration) + "depth";
-	string normal_path = "../Training_data/Scene_1/" + to_string(iteration) + "normals";
-	string albedo_path = "../Training_data/Scene_1/" + to_string(iteration) + "albedo" ;
+	// Write to disk
 	string rgb_path = "../Training_data/Scene_1/" + to_string(iteration) + "rgb";
-
-    // CHECKITOUT
-	img_normal.savePNG(normal_path);
-	img_albedo.savePNG(albedo_path);
 	img_rgb.savePNG_scaled(rgb_path);
-	img_depth.savePNG(depth_path);
-    //img.saveHDR(filename);  // Save a Radiance HDR file
+	
+	if (samples == 1) {
+		string depth_path = "../Training_data/Scene_1/" + to_string(iteration) + "depth";
+		string normal_path = "../Training_data/Scene_1/" + to_string(iteration) + "normals";
+		string albedo_path = "../Training_data/Scene_1/" + to_string(iteration) + "albedo"; img_normal.savePNG(normal_path);
+		img_albedo.savePNG(albedo_path);
+		img_depth.savePNG(depth_path);
+	}
 }
 
 void viewDenoiseRaw(int iter) {

@@ -302,7 +302,7 @@ __global__ void computeIntersections(
 			intersections[path_index].is_inside = !outside;
 			intersections[path_index].intersect = intersect_point;
 		}
-		if (DENOISE && depth == 0 && intersections[path_index].t >= 0){
+		if (DENOISE && depth == 0 && iter == 1 && intersections[path_index].t >= 0){
 			pixel_normals[path_index] = normal;
 			pixel_albedo[path_index] = pathSegment.color;
 			pixel_depth[path_index] = intersections[path_index].t;
@@ -516,11 +516,13 @@ void pathtrace(uchar4 *pbo, int frame, int iter) {
 	// Retrieve image from GPU
 	cudaMemcpy(hst_scene->state.image.data(), dev_image,
 		pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
-	cudaMemcpy(hst_scene->state.normals.data(), dev_normal,
-		pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
-	cudaMemcpy(hst_scene->state.albedos.data(), dev_albedo,
-		pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
-	cudaMemcpy(hst_scene->state.depth.data(), dev_depth,
-		pixelcount * sizeof(float), cudaMemcpyDeviceToHost);
+	if (iter == 1) {
+		cudaMemcpy(hst_scene->state.normals.data(), dev_normal,
+			pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+		cudaMemcpy(hst_scene->state.albedos.data(), dev_albedo,
+			pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+		cudaMemcpy(hst_scene->state.depth.data(), dev_depth,
+			pixelcount * sizeof(float), cudaMemcpyDeviceToHost);
+	}
 	checkCUDAError("pathtrace");
 }
