@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.nn import init
 from torch.nn import functional as func
 
-
+device =  torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # The recurrent block is the building block of the network
 class RecurrentBlock(nn.Module):
 
@@ -40,7 +40,7 @@ class RecurrentBlock(nn.Module):
 					nn.Conv2d(out_channel, out_channel, 3, padding=1),
 					nn.LeakyReLU(negative_slope=0.1),
 				)
-                
+
         elif self.bottleneck:
             self.layer1 = nn.Sequential(
                             nn.Conv2d(in_channel, out_channel, 3, padding = 1),
@@ -54,7 +54,7 @@ class RecurrentBlock(nn.Module):
                             )
 
     def forward(self, X):
-         if self.downsample:
+        if self.downsample:
              out1 = self.layer1(X)
              out2 = self.layer2(torch.cat((out1, self.hidden), dim=1))
 
@@ -76,8 +76,8 @@ class RecurrentBlock(nn.Module):
     def init_hidden(self, X, factor):
         size = list(X.size())
         size[1] = self.out_channel
-        size[2] /= factor
-        size[3] /= factor
+        size[2] = int(size[2]/factor)
+        size[3] = int(size[3]/factor)
 
         self.hidden_size = size
         self.hidden = torch.zeros(*(size)).to(device)
@@ -110,7 +110,7 @@ class AutoEncoder(nn.Module):
         self.pool = nn.MaxPool2d(kernel_size = 2)
 
     def set_input(self, X):
-        self.input = X['Image']
+        self.input = X
 
     def forward(self):
         encoder1 = self.encoder1(self.input)
@@ -131,10 +131,10 @@ class AutoEncoder(nn.Module):
 
     def reset_hidden(self):
 
-        self.encoder1.reset_hidden(self.input, 1)
-        self.encoder2.reset_hidden(self.input, 2)
-        self.encoder3.reset_hidden(self.input, 4)
-        self.encoder4.reset_hidden(self.input, 8)
-        self.encoder5.reset_hidden(self.input, 16)
+        self.encoder1[0].init_hidden(self.input, 1)
+        self.encoder2[0].init_hidden(self.input, 2)
+        self.encoder3[0].init_hidden(self.input, 4)
+        self.encoder4[0].init_hidden(self.input, 8)
+        self.encoder5[0].init_hidden(self.input, 16)
 
-        self.bottleneck.reset_hidden(self.input, 32)
+        self.bottleneck.init_hidden(self.input, 32)
