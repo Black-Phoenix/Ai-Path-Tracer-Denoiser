@@ -3,7 +3,7 @@
 #include "intersections.h"
 #define MESH_NORMAL_VIEW false
 #define FRESNELS true
-#define DIELECTRIC true
+#define DIELECTRIC false
 
 // CHECKITOUT
 /**
@@ -14,7 +14,6 @@ __host__ __device__
 glm::vec3 calculateRandomDirectionInHemisphere(
         glm::vec3 normal, thrust::default_random_engine &rng) {
     thrust::uniform_real_distribution<float> u01(0, 1);
-
     float up = sqrt(u01(rng)); // cos(theta)
     float over = sqrt(1 - up * up); // sin(theta)
     float around = u01(rng) * TWO_PI;
@@ -69,7 +68,9 @@ glm::vec3 calculateRandomDirectionInHemisphere(
  *
  * You may need to change the parameter list for your purposes!
  */
-
+__host__ __device__ glm::vec3 reflectIncomingByNormal(const glm::vec3 incoming, const glm::vec3 normal) {
+	return incoming - 2 * glm::dot(incoming, normal) * normal;
+}//reflectIncomingByNormal
 __host__ __host__ __device__
 bool refract(const glm::vec3& v, const glm::vec3& n, float ni_over_nt, glm::vec3& refracted) {
 	glm::vec3 uv = glm::normalize(v);
@@ -168,10 +169,10 @@ __forceinline__ __host__ __device__ void Lambert_BxDF(PathSegment & pathSegment,
 
 __host__ __device__
 void scatterRay(
-		PathSegment & pathSegment,
-		const ShadeableIntersection &intersection,
-        const Material &m,
-        thrust::default_random_engine &rng) {
+	PathSegment & pathSegment,
+	const ShadeableIntersection &intersection,
+	const Material &m,
+	thrust::default_random_engine &rng) {
 	glm::vec3 dir = pathSegment.ray.direction;
 	glm::vec3 color(1.0f, 1.0f, 1.0f);
 	thrust::uniform_real_distribution<float> u01(0, 1);
@@ -190,64 +191,70 @@ void scatterRay(
 			Lambert_BxDF(pathSegment, intersection.intersect, intersection.surfaceNormal, m, rng);
 		}
 	}
-	if (reflective_prob != 0 || m.hasRefractive != 0) {
-		float pdf = u01(rng), refrac_index_ratio, cosine;
-		glm::vec3 normal;
-		// Check if it is entry or exit of the object 
-		cosine = glm::dot(glm::normalize(dir), intersection.surfaceNormal);
-		if (cosine <= 0) { //intersection.is_inside
-			normal = intersection.surfaceNormal;
-			refrac_index_ratio = 1 / m.indexOfRefraction;
-			cosine = -cosine;
-		}
-		else {
-			normal = -intersection.surfaceNormal;
-			refrac_index_ratio = m.indexOfRefraction;
-		}
-		if (FRESNELS) {
-			// Check if refraction can occure
-			if (refract(pathSegment.ray.direction, normal, refrac_index_ratio, dir))
-				// Call schlicks to update the probs
-				reflective_prob = schlick(cosine, refrac_index_ratio);
-			else
-				reflective_prob = 1.0f;
-		}
-		// Now check if we are going to reflect or refract
-		if (pdf < reflective_prob) { 
-			dir = glm::normalize(glm::reflect(dir, intersection.surfaceNormal));
-			if (MESH_NORMAL_VIEW)
-				color = intersection.surfaceNormal;
-			else
-				color = m.specular.color;
-		}
-		else {
-			dir = glm::normalize(glm::refract(pathSegment.ray.direction, normal, refrac_index_ratio));
-			// total internal reflection
-			if (!glm::length(dir)) {
+	else {
+		if (reflective_prob != 0 || m.hasRefractive != 0) {
+			float pdf = u01(rng), refrac_index_ratio, cosine;
+			glm::vec3 normal;
+			// Check if it is entry or exit of the object 
+			cosine = glm::dot(glm::normalize(dir), intersection.surfaceNormal);
+			if (cosine <= 0) { //intersection.is_inside
+				normal = intersection.surfaceNormal;
+				refrac_index_ratio = 1 / m.indexOfRefraction;
+				cosine = -cosine;
+			}
+			else {
+				normal = -intersection.surfaceNormal;
+				refrac_index_ratio = m.indexOfRefraction;
+			}
+			if (FRESNELS) {
+				// Check if refraction can occure
+				if (refract(pathSegment.ray.direction, normal, refrac_index_ratio, dir))
+					// Call schlicks to update the probs
+					reflective_prob = schlick(cosine, refrac_index_ratio);
+				else
+					reflective_prob = 1.0f;
+			}
+			// Now check if we are going to reflect or refract
+			float probSpec = glm::length(m.specular.color) * (1.0 - m.hasRefractive);
+			float probDiff = glm::length(m.color) * (1.0 - m.hasRefractive);
+			if (pdf < reflective_prob) {
 				dir = glm::normalize(glm::reflect(dir, intersection.surfaceNormal));
 				if (MESH_NORMAL_VIEW)
 					color = intersection.surfaceNormal;
 				else
 					color = m.specular.color;
 			}
-			else
-				if (MESH_NORMAL_VIEW)
-					color = intersection.surfaceNormal;
+
+			else {
+				dir = glm::normalize(glm::refract(pathSegment.ray.direction, normal, refrac_index_ratio));
+				// total internal reflection
+				if (!glm::length(dir)) {
+					dir = glm::normalize(glm::reflect(dir, intersection.surfaceNormal));
+					if (MESH_NORMAL_VIEW)
+						color = intersection.surfaceNormal;
+					else
+						color = m.specular.color;
+				}
 				else
-					color = m.color;
+					if (MESH_NORMAL_VIEW)
+						color = intersection.surfaceNormal;
+					else
+						color = m.color;
+			}
 		}
-	}
-	else {
-		dir = glm::normalize(calculateRandomDirectionInHemisphere(intersection.surfaceNormal, rng));
+		else {
+			dir = glm::normalize(calculateRandomDirectionInHemisphere(intersection.surfaceNormal, rng));
+			if (MESH_NORMAL_VIEW)
+				color = intersection.surfaceNormal;
+			else
+				color = m.color;
+		}
+		pathSegment.ray.direction = dir;
+		pathSegment.ray.origin = intersection.intersect + dir * 0.01f;
 		if (MESH_NORMAL_VIEW)
-			color = intersection.surfaceNormal;
+			pathSegment.color *= glm::abs(color);
 		else
-			color = m.color;
+			pathSegment.color *= color;//glm::clamp(pathSegment.color * color, glm::vec3(0.0f), glm::vec3(1.0f));
 	}
-	pathSegment.ray.direction = dir;
-	pathSegment.ray.origin = intersection.intersect + dir * 0.01f;
-	if (MESH_NORMAL_VIEW)
-		pathSegment.color *= glm::abs(color);
-	else
-		pathSegment.color *= color;//glm::clamp(pathSegment.color * color, glm::vec3(0.0f), glm::vec3(1.0f));
 }
+

@@ -6,7 +6,7 @@
 #include "tiny_obj_loader.h"
 #include <limits>
 
-#define RECOMPUTE_NORMALS true
+#define RECOMPUTE_NORMALS false
 
 Scene::Scene(string filename) {
     cout << "Reading scene from " << filename << " ..." << endl;

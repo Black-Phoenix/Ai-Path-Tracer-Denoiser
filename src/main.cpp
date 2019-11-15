@@ -5,8 +5,9 @@
 #include "tiny_obj_loader.h"
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include<filesystem>
 
-
+#include<Windows.h>
 static std::string startTimeString;
 
 // For camera controls
@@ -27,13 +28,12 @@ glm::vec3 ogLookAt; // for recentering the camera
 Scene *scene;
 RenderState *renderState;
 int iteration;
-
 int width;
 int height;
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
-
+string filename;
 int main(int argc, char** argv) {
 	
     startTimeString = currentTimeString();
@@ -44,6 +44,7 @@ int main(int argc, char** argv) {
     }
 
     const char *sceneFile = argv[1];
+	filename = argv[1];
 	// Load scene file
 	scene = new Scene(sceneFile);
 	//load_obj();
@@ -53,7 +54,6 @@ int main(int argc, char** argv) {
     Camera &cam = renderState->camera;
     width = cam.resolution.x;
     height = cam.resolution.y;
-
     glm::vec3 view = cam.view;
     glm::vec3 up = cam.up;
     glm::vec3 right = glm::cross(view, up);
@@ -99,16 +99,21 @@ void saveImage() {
         }
     }
 	// Write to disk
-	string rgb_path = "../Training_data/Scene_1/" + to_string(iteration) + "rgb";
+	std::string last_element(filename.substr(filename.rfind("/") + 1));
+	cout << last_element << endl;
+	last_element = last_element.substr(0, last_element.length() - 4);
+	string OutputFolder = "Training_data/" + last_element + "/";
+	string rgb_path = "Training_data/" + last_element +"/"+to_string(iteration) + "rgb";
 	img_rgb.savePNG_scaled(rgb_path);
-	
 	if (samples == 1) {
-		string depth_path = "../Training_data/Scene_1/" + to_string(iteration) + "depth";
-		string normal_path = "../Training_data/Scene_1/" + to_string(iteration) + "normals";
-		string albedo_path = "../Training_data/Scene_1/" + to_string(iteration) + "albedo"; img_normal.savePNG(normal_path);
-		img_albedo.savePNG(albedo_path);
-		img_depth.savePNG(depth_path);
-	}
+			string depth_path = "Training_data/" + last_element + "/depth";
+			string normal_path = "Training_data/" + last_element + "/normals";
+			string albedo_path = "Training_data/" + last_element + "/albedo";
+			img_normal.savePNG(normal_path);
+			img_albedo.savePNG(albedo_path);
+			img_depth.savePNG(depth_path);
+		}
+	
 }
 
 void viewDenoiseRaw(int iter) {
@@ -151,14 +156,14 @@ void viewDenoiseRaw(int iter) {
 	cv::rotate(img_albedo, img_albedo, cv::ROTATE_90_CLOCKWISE);
 	cv::rotate(img_rgb, img_rgb, cv::ROTATE_90_CLOCKWISE);
 	// Save
-	string depth_path = "../Training_data/Scene_1/" + to_string(iter) + "depth" + string(".png");
-	cv::imwrite(depth_path.c_str(), img_depth);
-	string normal_path = "../Training_data/Scene_1/" + to_string(iter) + "normals" + string(".png");
-	cv::imwrite(normal_path.c_str(), img_normals);
-	string albedo_path = "../Training_data/Scene_1/" + to_string(iter) + "albedo" + string(".png");
-	cv::imwrite(albedo_path.c_str(), img_albedo);
-	string rgb_path = "../Training_data/Scene_1/" + to_string(iter) + "rgb" + string(".png");
-	cv::imwrite(rgb_path.c_str(), img_rgb);
+	//string depth_path = "../Training_data/Scene_1/" + to_string(iter) + "depth" + string(".png");
+	//cv::imwrite(depth_path.c_str(), img_depth);
+	//string normal_path = "../Training_data/Scene_1/" + to_string(iter) + "normals" + string(".png");
+	//cv::imwrite(normal_path.c_str(), img_normals);
+	//string albedo_path = "../Training_data/Scene_1/" + to_string(iter) + "albedo" + string(".png");
+	//cv::imwrite(albedo_path.c_str(), img_albedo);
+	//string rgb_path = "../Training_data/Scene_1/" + to_string(iter) + "rgb" + string(".png");
+	//cv::imwrite(rgb_path.c_str(), img_rgb);
 	//cv::waitKey(0);
 }
 int runCuda() {
@@ -207,7 +212,7 @@ int runCuda() {
 		return 1;
         //exit(EXIT_SUCCESS);
     }
-	if (iteration > 4998 || iteration < 25)
+	//if (iteration > 4998 || iteration < 25)
 		saveImage();
 	return 0;
 }
