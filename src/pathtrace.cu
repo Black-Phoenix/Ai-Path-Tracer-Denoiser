@@ -21,12 +21,12 @@
 #define STREAM_COMPACTION false
 #define SORT_MATERIAL false
 #define CACHE_BOUNCE false
-#define RAY_CULLING true
+#define RAY_CULLING false
 // Effects
 #define AA true
 #define MOTION_BLUR false
 #define ERRORCHECK false
-#define DENOISE true
+#define DENOISE false
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
@@ -87,8 +87,6 @@ static Material * dev_materials = NULL;
 static PathSegment * dev_paths = NULL;
 static ShadeableIntersection * dev_intersections = NULL;
 static ShadeableIntersection * dev_intersections_cache = NULL;
-static Face * dev_faces = NULL;
-static MeshBoundingBox * dev_mesh_box = NULL;
 static glm::vec3 * dev_albedo = NULL;
 static glm::vec3 * dev_normal = NULL;
 static float * dev_depth = NULL;
@@ -126,13 +124,6 @@ void pathtraceInit(Scene *scene) {
 
 
 	cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
-
-	// Mesh
-	cudaMalloc(&dev_faces, scene->faces.size() * sizeof(Face));
-	cudaMemcpy(dev_faces, scene->faces.data(), scene->faces.size() * sizeof(Face), cudaMemcpyHostToDevice);
-	// mesh bounding box
-	cudaMalloc((void**)&dev_mesh_box, sizeof(MeshBoundingBox));
-	cudaMemcpy(dev_mesh_box, &(scene->mesh_box), sizeof(MeshBoundingBox), cudaMemcpyHostToDevice);
 	checkCUDAError("pathtraceInit");
 }
 
@@ -143,9 +134,6 @@ void pathtraceFree() {
 	cudaFree(dev_materials);
 	cudaFree(dev_intersections);
 	cudaFree(dev_intersections_cache);
-	// mesh
-	cudaFree(dev_faces);
-	cudaFree(dev_mesh_box);
 	// Denoiser
 	cudaFree(dev_normal);
 	cudaFree(dev_albedo);
@@ -212,9 +200,6 @@ __global__ void computeIntersections(
 	, PathSegment * pathSegments
 	, Geom * geoms
 	, int geoms_size
-	, Face * face
-	, int face_size
-	, MeshBoundingBox * mesh_box
 	, glm::vec3 *pixel_albedo
 	, glm::vec3 *pixel_normals
 	, float *pixel_depth
@@ -252,6 +237,9 @@ __global__ void computeIntersections(
 			{
 				t = sphereIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
 			}
+			else if (geom.type == TRIANGLE) {
+				t = triangleIntersectionTest(geom.t, pathSegment.ray, tmp_intersect, tmp_normal, outside);
+			}
 			// TODO: add more intersection tests here... triangle? metaball? CSG?
 
 			// Compute the minimum t from the intersection tests to determine what
@@ -262,31 +250,6 @@ __global__ void computeIntersections(
 				materialid = geoms[i].materialid;
 				intersect_point = tmp_intersect;
 				normal = tmp_normal;
-			}
-		}
-		// Check for mesh collision
-		if (face_size && RAY_CULLING && RayAABBintersect(pathSegment.ray, mesh_box[0])) {
-			for (int i = 0; i < face_size; i++) {
-				t = triangleIntersectionTest(face[i], pathSegment.ray, tmp_intersect, tmp_normal, outside);
-				if (t > 0.0f && t_min > t)
-				{
-					t_min = t;
-					materialid = face[i].materialid;
-					intersect_point = tmp_intersect;
-					normal = tmp_normal;
-				}
-			}
-		}
-		else if (face_size && !RAY_CULLING) {
-			for (int i = 0; i < face_size; i++) {
-				t = triangleIntersectionTest(face[i], pathSegment.ray, tmp_intersect, tmp_normal, outside);
-				if (t > 0.0f && t_min > t)
-				{
-					t_min = t;
-					materialid = face[i].materialid;
-					intersect_point = tmp_intersect;
-					normal = tmp_normal;
-				}
 			}
 		}
 		if (materialid == -1)
@@ -358,7 +321,7 @@ __global__ void shadeMaterial(
 			glm::vec3 materialColor = material.color;
 
 			// If the material indicates that the object was a light, "light" the ray
-			if (material.emittance > 0.0f) {
+			if (glm::l2Norm(material.emittance) > 0.0f) {
 				pathSegments[idx].remainingBounces = 0;
 				pathSegments[idx].color = pathSegments[idx].color * materialColor * material.emittance;//glm::clamp(pathSegments[idx].color * materialColor * material.emittance, glm::vec3(0.0), glm::vec3(1.0));
 			}
@@ -402,6 +365,7 @@ struct path_termination_test
 		return path.remainingBounces > 0; 
 	};
 };
+
 struct sort_cmp {
 	__host__ __device__
 		bool operator()(const ShadeableIntersection &s1, const ShadeableIntersection &s2) {
@@ -459,7 +423,7 @@ void pathtrace(uchar4 *pbo, int frame, int iter) {
 		if (depth == 0 && CACHE_BOUNCE && iter == 1) {
 			cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
 			computeIntersections << <numblocksPathSegmentTracing, blockSize1d >> > (depth,
-				num_paths, dev_paths, dev_geoms, hst_scene->geoms.size(), dev_faces, hst_scene->faces.size(), dev_mesh_box, dev_albedo, dev_normal, dev_depth, dev_intersections, iter);
+				num_paths, dev_paths, dev_geoms, hst_scene->geoms.size(), dev_albedo, dev_normal, dev_depth, dev_intersections, iter);
 			// cache
 			cudaMemcpy(dev_intersections_cache, dev_intersections, pixelcount * sizeof(ShadeableIntersection), cudaMemcpyDeviceToDevice);
 		}
@@ -470,7 +434,7 @@ void pathtrace(uchar4 *pbo, int frame, int iter) {
 		else {
 			cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
 			computeIntersections << <numblocksPathSegmentTracing, blockSize1d >> > (depth,
-				num_paths, dev_paths, dev_geoms, hst_scene->geoms.size(), dev_faces, hst_scene->faces.size(), dev_mesh_box, dev_albedo, dev_normal, dev_depth, dev_intersections, iter);
+				num_paths, dev_paths, dev_geoms, hst_scene->geoms.size(), dev_albedo, dev_normal, dev_depth, dev_intersections, iter);
 		}
 		checkCUDAError("trace one bounce");
 		cudaDeviceSynchronize();
@@ -516,7 +480,7 @@ void pathtrace(uchar4 *pbo, int frame, int iter) {
 	// Retrieve image from GPU
 	cudaMemcpy(hst_scene->state.image.data(), dev_image,
 		pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
-	if (iter == 1) {
+	if (iter == 1 && DENOISE) {
 		cudaMemcpy(hst_scene->state.normals.data(), dev_normal,
 			pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 		cudaMemcpy(hst_scene->state.albedos.data(), dev_albedo,

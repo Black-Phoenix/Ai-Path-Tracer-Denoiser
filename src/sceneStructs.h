@@ -10,11 +10,21 @@
 enum GeomType {
     SPHERE,
     CUBE,
+	TRIANGLE,
 };
 
 struct Ray {
     glm::vec3 origin;
     glm::vec3 direction;
+};
+
+struct Triangle {
+	// Vertices
+	glm::vec3 vs[3];
+	// Normals
+	glm::vec3 ns[3];
+	// texture coordinates
+	glm::vec3 uvs[3];
 };
 
 struct Geom {
@@ -27,15 +37,10 @@ struct Geom {
     glm::mat4 inverseTransform;
     glm::mat4 invTranspose;
 	glm::vec3 vel;
+	Triangle t;
 };
 
-struct Mesh {
-	// Vertices
-	glm::vec3 * v[3];
-	// Normals
-	glm::vec3 * n[3];
-	int num_faces;
-};
+
 
 struct Face {
 	glm::vec3 v[3];
@@ -49,10 +54,22 @@ struct Material {
         float exponent;
         glm::vec3 color;
     } specular;
-    float hasReflective;
-    float hasRefractive;
     float indexOfRefraction;
-    float emittance;
+    glm::vec3 emittance;
+	float roughness;
+	// bools
+	bool diffused;
+	bool fresnels;
+	bool glass;
+	bool reflective;
+	bool refractive;
+	Material(){
+		diffused = false;
+		fresnels = false;
+		glass = false;
+		reflective = false;
+		refractive = false;
+	}
 };
 
 struct Camera {

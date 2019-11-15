@@ -109,6 +109,7 @@ void saveImage() {
 		img_albedo.savePNG(albedo_path);
 		img_depth.savePNG(depth_path);
 	}
+    //img.saveHDR(filename);  // Save a Radiance HDR file
 }
 
 void viewDenoiseRaw(int iter) {

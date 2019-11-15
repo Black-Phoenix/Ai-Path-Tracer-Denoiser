@@ -156,16 +156,16 @@ __host__ __device__ float sphereIntersectionTest(Geom sphere, Ray r,
  * @param outside            Output param for whether the ray came from outside.
  * @return                   Ray parameter `t` value. -1 if no intersection.
  */
-__host__ __device__ float triangleIntersectionTest(Face f,Ray r, glm::vec3 &intersectionPoint, glm::vec3 &normal, bool &outside) {
+__host__ __device__ float triangleIntersectionTest(Triangle f,Ray r, glm::vec3 &intersectionPoint, glm::vec3 &normal, bool &outside) {
 	// Collision point
 	glm::vec3 baryPosition(0.0f);
-	bool collision = glm::intersectRayTriangle(r.origin, r.direction, f.v[0], f.v[1], f.v[2], baryPosition);
+	bool collision = glm::intersectRayTriangle(r.origin, r.direction, f.vs[0], f.vs[1], f.vs[2], baryPosition);
 	// is rand_shit inside triangle or not
 	if (!collision)
 		return -1;
-	intersectionPoint = baryPosition.x *  f.v[0] + baryPosition.y *  f.v[1] + (1 - baryPosition.x - baryPosition.y)  *  f.v[2];
+	intersectionPoint = baryPosition.x *  f.vs[0] + baryPosition.y *  f.vs[1] + (1 - baryPosition.x - baryPosition.y)  *  f.vs[2];
 	// get normals
-	normal = glm::normalize((1 - baryPosition.x - baryPosition.y) * f.n[0] + baryPosition.x * f.n[1] + baryPosition.y * f.n[2]);
+	normal = glm::normalize((1 - baryPosition.x - baryPosition.y) * f.ns[0] + baryPosition.x * f.ns[1] + baryPosition.y * f.ns[2]);
 	// Calculate t
 	return baryPosition.z;
 	//return -1;
