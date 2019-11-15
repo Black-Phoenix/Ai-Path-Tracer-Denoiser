@@ -7,7 +7,7 @@ Created on Thu Nov 14 22:10:41 2019
 import random
 import numpy as np
 
-for i in range(1,1000):
+for i in range(1,30):
     f_read = open("scene_1.txt","r")
     f_write = open("scene_{}.txt".format(i+1),"w")
     material = 0
