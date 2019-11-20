@@ -16,23 +16,27 @@ from recurrent_autoencoder_model import *
 from dataloader import *
 from loss import *
 from tensorboard import *
+import matplotlib.pyplot as plt
+import warnings
+warnings.filterwarnings("ignore")
 
 logger = Logger('./logs')
 device =  torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-m = find_max('../train_data/scenes',4)
-dataset = AutoEncoderData('../train_data','../train_data/scenes','../train_data/scenes','../train_data/scenes',(256,256), m)
+m = find_max('../test_data/scenes',2)
+dataset = AutoEncoderData('../test_data','../test_data/scenes','../test_data/normals','../test_data/depths',(256,256), m)
 train_loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
 model =   AutoEncoder(7).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 overall_step = 0
 total_step = len(train_loader)
-for epoch in range(20):
+for epoch in range(100):
     total_loss = 0
     total_loss_num = 0
     for i, data in enumerate(train_loader):
         optimizer.zero_grad()
         input = data['image'].to(device)
         label = data['output'].to(device)
+
         outputs = torch.zeros_like(label)
         targets = torch.zeros_like(label)
         loss_final = 0
@@ -40,21 +44,21 @@ for epoch in range(20):
         lg_final = 0
         lt_final = 0
         for j in range(7):
-            input_i = input[:,j,:,:]
-            label_i = label[:,j,:,:]
+            input_i = input[:,j,:,:,:]
+            label_i = label[:,j,:,:,:]
             model.set_input(input_i)
             if j == 0:
                 model.reset_hidden()
             output = model()
-            outputs[:,j,:,:] = output
-            targets[:,j,:,:] = label_i
+            outputs[:,j,:,:,:] = output
+            targets[:,j,:,:,:] = label_i
         temporal_output, temporal_target = get_temporal_data(outputs, targets)
 
         for j in range(7):
-            output = outputs[:,j,:,:]
-            target = targets[:,j,:,:]
-            t_output = temporal_output[:,j,:,:]
-            t_target = temporal_target[:,j,:,:]
+            output = outputs[:,j,:,:,:]
+            target = targets[:,j,:,:,:]
+            t_output = temporal_output[:,j,:,:,:]
+            t_target = temporal_target[:,j,:,:,:]
             l, ls, lg, lt = loss_func(output, t_output, target, t_target)
             loss_final += l
             ls_final += ls
@@ -73,3 +77,5 @@ for epoch in range(20):
         total_loss += loss_final.item()
         total_loss_num += 1
     print("Average loss over Epoch {} = {}".format(epoch, total_loss/total_loss_num))
+    checkpoint = {'net': model.state_dict()}
+    torch.save(checkpoint,'autoencoder_model.pt')

@@ -76,10 +76,10 @@ class AutoEncoderData(Dataset):
         return len(self.images)
 
 if __name__ == '__main__':
-    m = find_max('../train_data/scenes',4)
+    m = find_max('../test_data/scenes',2)
     #print(np.cumsum(m))
-    dataset = AutoEncoderData('../train_data','../train_data/scenes','../train_data/scenes','../train_data/scenes',(256,256), m)
-    data_num = 250
+    dataset = AutoEncoderData('../test_data','../test_data/scenes','../test_data/normals','../test_data/depths',(256,256), m)
+    data_num = 1
     data = dataset[data_num]
     print(data['image'].shape)
     print(data['output'].shape)
