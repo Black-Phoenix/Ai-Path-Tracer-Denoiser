@@ -30,6 +30,7 @@ RenderState *renderState;
 int iteration;
 int width;
 int height;
+#define SAVE_DENOISE true
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
@@ -93,7 +94,7 @@ void saveImage() {
 			img_rgb.setPixel(width - 1 - x, y, glm::vec3(renderState->image[index]) / samples);
 			if (samples == 1) {
 				img_normal.setPixel(width - 1 - x, y, glm::vec3(glm::abs(renderState->normals[index]) * 100.f));
-				img_albedo.setPixel(width - 1 - x, y, glm::vec3(renderState->albedos[index] * 10.f));
+				img_albedo.setPixel(width - 1 - x, y, glm::vec3(renderState->albedos[index] * 255.f));
 				img_depth.setPixel(width - 1 - x, y, glm::vec3(renderState->depth[index] * 10.f, 0, 0));
 			}
         }
@@ -212,7 +213,7 @@ int runCuda() {
 		return 1;
         //exit(EXIT_SUCCESS);
     }
-	//if (iteration > 4998 || iteration < 25)
+	if (SAVE_DENOISE)
 		saveImage();
 	return 0;
 }

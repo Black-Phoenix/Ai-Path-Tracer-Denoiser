@@ -15,7 +15,7 @@ do
 	  mkdir -p $train/$scene_name/;
 	fi
 	#echo $target$(basename $f)
-    ./cis565_path_tracer.exe $target/$(basename $f)
+    ./build/bin/Release/cis565_path_tracer.exe $target/$(basename $f)
     break
 done
 
