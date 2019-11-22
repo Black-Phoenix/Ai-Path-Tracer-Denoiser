@@ -5,6 +5,8 @@
 #include <glm/gtx/string_cast.hpp>
 #include "tiny_obj_loader.h"
 #include <limits>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
 
 Scene::Scene(string filename) {
     cout << "Reading scene from " << filename << " ..." << endl;
@@ -287,10 +289,33 @@ int Scene::loadScene(string path, string scene_name) {
 		//newMaterial.refractive = false;
 
 		auto material = obj_materials[m];
+		// Materials
+		if (material.diffuse_texname != "") { // has something
+			string text_name = path + material.diffuse_texname;
+			cv::Mat image = cv::imread(text_name.c_str());
+			if (!image.data) 
+				cout << "Couldn't open texture at " << text_name << endl;
+			else {
+				newMaterial.col = image.cols;
+				newMaterial.row = image.rows;
+				newMaterial.texture_offset = textures.size();
+				for (int i = 0; i < newMaterial.row; i++) {
+					for (int j = 0; j < newMaterial.col; j++) {
+						cv::Vec3b &rbg = image.at<cv::Vec3b>(i, j);
+						// Read data into large array
+						glm::vec3 texture;
+						texture[0] = rbg[0] / 255.0;
+						texture[1] = rbg[1] / 255.0;
+						texture[2] = rbg[2] / 255.0;
+						textures.push_back(texture);
+					}
+				}
+			}
+		}
 		// color
 		newMaterial.color = glm::vec3(material.diffuse[0], material.diffuse[1], material.diffuse[2]);
 		// specular
-		newMaterial.specular.color = newMaterial.color; glm::vec3(material.specular[0], material.specular[1], material.specular[2]);
+		newMaterial.specular.color = glm::vec3(material.specular[0], material.specular[1], material.specular[2]);
 		// Illuminitation type (All have specular...)
 		if (material.illum < 3 || material.illum == 10) // then diffused
 			newMaterial.diffused = true;
@@ -349,18 +374,17 @@ int Scene::loadScene(string path, string scene_name) {
 					newGeom.t.ns[v] = glm::vec3(obj_attrib.normals[3 * idx.normal_index + 0],
 												obj_attrib.normals[3 * idx.normal_index + 1],
 												obj_attrib.normals[3 * idx.normal_index + 2]);
-					newGeom.t.vs[v] = glm::vec3(invTranspose * glm::vec4(newGeom.t.vs[v], 1));
+					newGeom.t.ns[v] = glm::vec3(invTranspose * glm::vec4(newGeom.t.ns[v], 0));
 				}
 				if (obj_attrib.texcoords.size() != 0) {
 					// load texture coordinates
-					newGeom.t.uvs[v] = glm::vec3(obj_attrib.texcoords[3 * idx.texcoord_index + 0],
-												obj_attrib.texcoords[3 * idx.texcoord_index + 1],
-												obj_attrib.texcoords[3 * idx.texcoord_index + 2]);
+					newGeom.t.uvs[v] = glm::vec2(obj_attrib.texcoords[2 * idx.texcoord_index + 0],
+												 obj_attrib.texcoords[2 * idx.texcoord_index + 1]);
 				}
 			}
 			if (obj_attrib.normals.size() == 0) {
 				// recompute normals
-				newGeom.t.ns[0] = newGeom.t.ns[1] = newGeom.t.ns[2] = glm::vec3(invTranspose * glm::vec4(calculate_geometric_normals(newGeom.t.vs[0], newGeom.t.vs[1], newGeom.t.vs[2]), 1));
+				newGeom.t.ns[0] = newGeom.t.ns[1] = newGeom.t.ns[2] = calculate_geometric_normals(newGeom.t.vs[0], newGeom.t.vs[1], newGeom.t.vs[2]);
 			}
 			index_offset += fv;
 			geoms.push_back(newGeom);

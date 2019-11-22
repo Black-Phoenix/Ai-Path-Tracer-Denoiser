@@ -6,6 +6,7 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
+#define GENERATE_DATA false
 
 static std::string startTimeString;
 
@@ -105,7 +106,8 @@ void saveImage() {
 	if (samples == 1) {
 		string depth_path = "../Training_data/Scene_1/" + to_string(iteration) + "depth";
 		string normal_path = "../Training_data/Scene_1/" + to_string(iteration) + "normals";
-		string albedo_path = "../Training_data/Scene_1/" + to_string(iteration) + "albedo"; img_normal.savePNG(normal_path);
+		string albedo_path = "../Training_data/Scene_1/" + to_string(iteration) + "albedo"; 
+		img_normal.savePNG(normal_path);
 		img_albedo.savePNG(albedo_path);
 		img_depth.savePNG(depth_path);
 	}
@@ -208,7 +210,7 @@ int runCuda() {
 		return 1;
         //exit(EXIT_SUCCESS);
     }
-	if (iteration > 4998 || iteration < 25)
+	if (GENERATE_DATA)
 		saveImage();
 	return 0;
 }

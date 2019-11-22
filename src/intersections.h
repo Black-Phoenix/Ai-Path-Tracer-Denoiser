@@ -156,20 +156,68 @@ __host__ __device__ float sphereIntersectionTest(Geom sphere, Ray r,
  * @param outside            Output param for whether the ray came from outside.
  * @return                   Ray parameter `t` value. -1 if no intersection.
  */
-__host__ __device__ float triangleIntersectionTest(Triangle f,Ray r, glm::vec3 &intersectionPoint, glm::vec3 &normal, bool &outside) {
-	// Collision point
-	glm::vec3 baryPosition(0.0f);
-	bool collision = glm::intersectRayTriangle(r.origin, r.direction, f.vs[0], f.vs[1], f.vs[2], baryPosition);
-	// is rand_shit inside triangle or not
-	if (!collision)
-		return -1;
-	intersectionPoint = baryPosition.x *  f.vs[0] + baryPosition.y *  f.vs[1] + (1 - baryPosition.x - baryPosition.y)  *  f.vs[2];
-	// get normals
-	normal = glm::normalize((1 - baryPosition.x - baryPosition.y) * f.ns[0] + baryPosition.x * f.ns[1] + baryPosition.y * f.ns[2]);
-	// Calculate t
-	return baryPosition.z;
-	//return -1;
+
+__forceinline__ __host__ __device__ float TriArea(glm::vec3 &p1, glm::vec3 &p2, glm::vec3 &p3)
+{
+	return glm::length(glm::cross(p1 - p2, p3 - p2)) * 0.5f;
 }
+
+__forceinline__ __host__ __device__ glm::vec2 GetTriangleUVs(Geom &g, glm::vec3 &P)
+{
+	float A = TriArea(g.t.vs[0], g.t.vs[1], g.t.vs[2]);
+	float A0 = TriArea(g.t.vs[1], g.t.vs[2], P);
+	float A1 = TriArea(g.t.vs[0], g.t.vs[2], P);
+	float A2 = TriArea(g.t.vs[0], g.t.vs[1], P);
+	return glm::clamp(g.t.uvs[0] * A0 / A + g.t.uvs[1] * A1 / A + g.t.uvs[2] * A2 / A, 0.f, 1.f);
+}
+
+
+__forceinline__ __host__ __device__ glm::vec3 GetTriangleNormal(Geom &g, glm::vec3 &P)
+{
+	float A = TriArea(g.t.vs[0], g.t.vs[1], g.t.vs[2]);
+	float A0 = TriArea(g.t.vs[1], g.t.vs[2], P);
+	float A1 = TriArea(g.t.vs[0], g.t.vs[2], P);
+	float A2 = TriArea(g.t.vs[0], g.t.vs[1], P);
+	return glm::normalize(g.t.ns[0] * A0 / A + g.t.ns[1] * A1 / A + g.t.ns[2] * A2 / A);
+}
+__host__ __device__ float triangleIntersectionTest(Geom triangle, Ray r,
+	glm::vec3 &intersectionPoint, glm::vec3 &normal, bool &outside) {
+	glm::vec3 *points = triangle.t.vs;
+	float S = TriArea(points[0], points[1], points[2]);
+	glm::vec3 e1 = points[0] - points[1];
+	glm::vec3 e2 = points[2] - points[1];
+
+	// find normal, (a, b, c)
+	glm::vec3 n = glm::normalize((glm::cross(e1, e2)));
+
+	// D = a(x0) + b(y0) + c(z0)
+	float D = glm::dot(n, points[0]);
+
+	// substitute ray for plane equation and solve for t
+	float t = (glm::dot(n, points[0] - r.origin)) / (glm::dot(n, r.direction));
+
+	// find the point on the plane
+	glm::vec3 P = r.origin + t * r.direction;
+
+	float S1 = TriArea(P, points[1], points[2]) / S;
+	float S2 = TriArea(P, points[2], points[0]) / S;
+	float S3 = TriArea(P, points[0], points[1]) / S;
+
+	bool a = 0 <= S1 && S1 <= 1;
+	bool b = 0 <= S2 && S2 <= 1;
+	bool c = 0 <= S3 && S3 <= 1;
+	bool d = (S1 + S2 + S3) - 1.0 < 0.001;
+
+	if (a && b && c && d) { // was hit
+		normal = GetTriangleNormal(triangle, P);
+		intersectionPoint = P;
+		return t;
+	}
+	else {
+		return -1;
+	}
+}
+
 
 
 __host__ __device__ bool RayAABBintersect(const Ray &ray,const MeshBoundingBox& aabb) {

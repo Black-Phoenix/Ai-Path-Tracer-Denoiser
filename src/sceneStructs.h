@@ -24,7 +24,7 @@ struct Triangle {
 	// Normals
 	glm::vec3 ns[3];
 	// texture coordinates
-	glm::vec3 uvs[3];
+	glm::vec2 uvs[3];
 };
 
 struct Geom {
@@ -39,7 +39,6 @@ struct Geom {
 	glm::vec3 vel;
 	Triangle t;
 };
-
 
 
 struct Face {
@@ -63,12 +62,17 @@ struct Material {
 	bool glass;
 	bool reflective;
 	bool refractive;
+	// Textures
+	int row, col;
+	int texture_offset;
+
 	Material(){
 		diffused = false;
 		fresnels = false;
 		glass = false;
 		reflective = false;
 		refractive = false;
+		texture_offset = -1;
 	}
 };
 
@@ -114,4 +118,5 @@ struct ShadeableIntersection {
   int materialId;
   bool is_inside;
   glm::vec3 intersect;
+  glm::vec2 uvs;
 };

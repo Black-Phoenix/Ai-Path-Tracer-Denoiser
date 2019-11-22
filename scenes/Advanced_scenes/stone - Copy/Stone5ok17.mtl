@@ -1,0 +1,16 @@
+# 3ds Max Wavefront OBJ Exporter v0.97b - (c)2007 guruware
+# File Created: 06.10.2017 14:07:37
+
+newmtl Stone5ok17Scanl
+	Ns 55.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.5882 0.5882 0.5882
+	Kd 0.5882 0.5882 0.5882
+	Ks 0.0450 0.0450 0.0450
+	Ke 0.5294 0.5294 0.5294
+	map_Ka Stone5ok17Diff.jpg
+	map_Kd Stone5ok17Diff.jpg

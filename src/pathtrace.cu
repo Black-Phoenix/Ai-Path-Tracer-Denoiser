@@ -90,6 +90,7 @@ static ShadeableIntersection * dev_intersections_cache = NULL;
 static glm::vec3 * dev_albedo = NULL;
 static glm::vec3 * dev_normal = NULL;
 static float * dev_depth = NULL;
+static glm::vec3 * dev_textures = NULL;
 
 void pathtraceInit(Scene *scene) {
 	hst_scene = scene;
@@ -106,6 +107,9 @@ void pathtraceInit(Scene *scene) {
 
 	cudaMalloc(&dev_materials, scene->materials.size() * sizeof(Material));
 	cudaMemcpy(dev_materials, scene->materials.data(), scene->materials.size() * sizeof(Material), cudaMemcpyHostToDevice);
+
+	cudaMalloc(&dev_textures, scene->textures.size() * sizeof(glm::vec3));
+	cudaMemcpy(dev_textures, scene->textures.data(), scene->textures.size() * sizeof(glm::vec3), cudaMemcpyHostToDevice);
 
 	cudaMalloc(&dev_intersections, pixelcount * sizeof(ShadeableIntersection));
 
@@ -134,6 +138,7 @@ void pathtraceFree() {
 	cudaFree(dev_materials);
 	cudaFree(dev_intersections);
 	cudaFree(dev_intersections_cache);
+	cudaFree(dev_textures);
 	// Denoiser
 	cudaFree(dev_normal);
 	cudaFree(dev_albedo);
@@ -218,6 +223,7 @@ __global__ void computeIntersections(
 		glm::vec3 normal;
 		float t_min = FLT_MAX;
 		int materialid = -1;
+		int hit_geom_index;
 		bool outside = true;
 
 		glm::vec3 tmp_intersect;
@@ -238,7 +244,7 @@ __global__ void computeIntersections(
 				t = sphereIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
 			}
 			else if (geom.type == TRIANGLE) {
-				t = triangleIntersectionTest(geom.t, pathSegment.ray, tmp_intersect, tmp_normal, outside);
+				t = triangleIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
 			}
 			// TODO: add more intersection tests here... triangle? metaball? CSG?
 
@@ -247,6 +253,7 @@ __global__ void computeIntersections(
 			if (t > 0.0f && t_min > t)
 			{
 				t_min = t;
+				hit_geom_index = i;
 				materialid = geoms[i].materialid;
 				intersect_point = tmp_intersect;
 				normal = tmp_normal;
@@ -264,6 +271,10 @@ __global__ void computeIntersections(
 			intersections[path_index].surfaceNormal = glm::normalize(normal);
 			intersections[path_index].is_inside = !outside;
 			intersections[path_index].intersect = intersect_point;
+			glm::vec3 pt = multiplyMV(geoms[hit_geom_index].inverseTransform, glm::vec4(intersect_point, 1.0f));
+			if (geoms[hit_geom_index].type == TRIANGLE) {
+				intersections[path_index].uvs = GetTriangleUVs(geoms[hit_geom_index], pt);
+			}
 		}
 		if (DENOISE && depth == 0 && iter == 1 && intersections[path_index].t >= 0){
 			pixel_normals[path_index] = normal;
@@ -304,6 +315,7 @@ __global__ void shadeMaterial(
 	, ShadeableIntersection * shadeableIntersections
 	, PathSegment * pathSegments
 	, Material * materials
+	, glm::vec3 *textures
 )
 {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -328,7 +340,13 @@ __global__ void shadeMaterial(
 			// Otherwise, do some pseudo-lighting computation. This is actually more
 			// like what you would expect from shading in a rasterizer like OpenGL.
 			else{
-				//glm::vec3 intersectionPoint;
+				if (material.texture_offset > -1) {
+					int pixel_x = intersection.uvs[0] * (material.col - 1);
+					int pixel_y = (1.f - intersection.uvs[1]) * (material.row - 1);
+					int text_idx = pixel_y * material.col + pixel_x + material.texture_offset;
+					glm::vec3 texColor = textures[text_idx];
+					pathSegments[idx].color *= texColor;
+				}
 				//intersectionPoint = getPointOnRay(pathSegments[idx].ray, intersection.t);//pathSegments[idx].ray.origin + pathSegments[idx].ray.direction * intersection.t;
 				scatterRay(pathSegments[idx], intersection, material, rng);
 				--pathSegments[idx].remainingBounces;
@@ -455,7 +473,8 @@ void pathtrace(uchar4 *pbo, int frame, int iter) {
 			num_paths,
 			dev_intersections,
 			dev_paths,
-			dev_materials
+			dev_materials,
+			dev_textures
 			);
 		checkCUDAError("Shader"); 
 		if (STREAM_COMPACTION) {
