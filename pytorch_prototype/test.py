@@ -30,19 +30,20 @@ overall_step = 0
 total_step = len(test_loader)
 with torch.no_grad():
     for i, data in enumerate(test_loader):
-        input = data['image'].to(device)
-        output = data['output'].to(device)
+        input = data['image'].float().to(device)
+        output = data['output'].float().to(device)
+        print(output.shape)
         for j in range(7):
             fig, ax = plt.subplots(3)
             input_i = input[:,j,:,:,:]
-            output_i = output[:,:,:,:,:]
+            output_i = output[:,j,:,:,:]
             ax[0].imshow(input_i[0,:3,:,:].permute(1,2,0).detach().cpu().numpy())
             ax[0].set_title("Noisy Image")
             model.set_input(input_i)
             if j == 0:
                 model.reset_hidden()
-            output = model()
-            ax[1].imshow(output[0].permute(1,2,0).cpu().numpy())
+            pred = model()
+            ax[1].imshow(pred[0].permute(1,2,0).cpu().numpy())
             ax[1].set_title("Denoised Image")
             ax[2].imshow(output_i[0,:,:,:].permute(1,2,0).detach().cpu().numpy())
             ax[2].set_title("Ground Truth")
