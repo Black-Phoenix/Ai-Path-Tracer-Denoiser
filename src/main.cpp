@@ -103,13 +103,15 @@ void saveImage() {
 	std::string last_element(filename.substr(filename.rfind("/") + 1));
 	cout << last_element << endl;
 	last_element = last_element.substr(0, last_element.length() - 4);
+	last_element = last_element.substr(6, last_element.length());
 	string OutputFolder = "Training_data/" + last_element + "/";
-	string rgb_path = "Training_data/" + last_element +"/"+to_string(iteration) + "rgb";
+	string zero_padded_iter = std::string(4 - to_string(iteration).length(), '0') + to_string(iteration);
+	string rgb_path = "Training_data/RGB/" + last_element + "_" + zero_padded_iter;
 	img_rgb.savePNG_scaled(rgb_path);
 	if (samples == 1) {
-			string depth_path = "Training_data/" + last_element + "/depth";
-			string normal_path = "Training_data/" + last_element + "/normals";
-			string albedo_path = "Training_data/" + last_element + "/albedo";
+			string depth_path = "Training_data/Depth/" + last_element;
+			string normal_path = "Training_data/Normals/" + last_element;
+			string albedo_path = "Training_data/Albedos/" + last_element;
 			img_normal.savePNG(normal_path);
 			img_albedo.savePNG(albedo_path);
 			img_depth.savePNG(depth_path);
