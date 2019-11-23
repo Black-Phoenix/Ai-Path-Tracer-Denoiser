@@ -25,10 +25,11 @@ warnings.filterwarnings("ignore")
 
 #logger = Logger('./logs')
 device =  torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-m = find_max('../test_data/scenes',2)
-dataset = AutoEncoderData('../test_data','../test_data/scenes','../test_data/normals','../test_data/depths',(256,256), m)
+m = find_max('../test/RGB',10)
+inputs, outputs = preprocess('../test','../test/RGB','../test/Depth','../test/Albedos','../test/Normals',m)
+dataset = AutoEncoderData('../test/RGB',inputs,outputs,(256,256),m)
 train_loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
-model =   AutoEncoder(10).to(device)
+model =  AutoEncoder(10).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 scheduler = StepLR(optimizer, step_size=100, gamma=0.2)
 
@@ -40,8 +41,8 @@ for epoch in range(200):
     print('Epoch:', epoch,'LR:', scheduler.get_lr())
     for i, data in enumerate(train_loader):
         optimizer.zero_grad()
-        input = data['image'].to(device)
-        label = data['output'].to(device)
+        input = data['image'].float().to(device)
+        label = data['output'].float().to(device)
 
         outputs = torch.zeros_like(label)
         targets = torch.zeros_like(label)
