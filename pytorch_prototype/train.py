@@ -59,7 +59,7 @@ for epoch in range(200):
             outputs[:,j,:,:,:] = output
             targets[:,j,:,:,:] = label_i
         temporal_output, temporal_target = get_temporal_data(outputs, targets)
-	    val_j = [0.011, 0.044, 0.135, 0.325, 0.607, 0.882, 1]
+        val_j = [0.011, 0.044, 0.135, 0.325, 0.607, 0.882, 1]
 
         for j in range(7):
             output = outputs[:,j,:,:,:]
