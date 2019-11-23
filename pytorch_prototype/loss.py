@@ -11,19 +11,17 @@ from PIL import Image
 import torchvision.transforms as transforms
 import numpy as np
 import torch
-
+import math
 
 def LoG(img):
 	weight = [
-		[0, 0, 1, 0, 0],
-		[0, 1, 2, 1, 0],
-		[1, 2, -16, 2, 1],
-		[0, 1, 2, 1, 0],
-		[0, 0, 1, 0, 0]
+        [0,1,0],
+        [1,-4,1],
+        [0,1,0]
 	]
 	weight = np.array(weight)
 
-	weight_np = np.zeros((1, 1, 5, 5))
+	weight_np = np.zeros((1, 1, 3, 3))
 	weight_np[0, 0, :, :] = weight
 	weight_np = np.repeat(weight_np, img.shape[1], axis=1)
 	weight_np = np.repeat(weight_np, img.shape[0], axis=0)
@@ -32,22 +30,66 @@ def LoG(img):
 
 	return func.conv2d(img, weight, padding=1)
 
+def get_gaussian_kernel(kernel_size=3, sigma=2, channels=3):
+    # Create a x, y coordinate grid of shape (kernel_size, kernel_size, 2)
+    x_coord = torch.arange(kernel_size)
+    x_grid = x_coord.repeat(kernel_size).view(kernel_size, kernel_size)
+    y_grid = x_grid.t()
+    xy_grid = torch.stack([x_grid, y_grid], dim=-1).float()
+
+    mean = (kernel_size - 1)/2.
+    variance = sigma**2.
+
+    # Calculate the 2-dimensional gaussian kernel which is
+    # the product of two gaussian distributions for two different
+    # variables (in this case called x and y)
+    gaussian_kernel = (1./(2.*math.pi*variance)) *\
+                      torch.exp(
+                          -torch.sum((xy_grid - mean)**2., dim=-1) /\
+                          (2*variance)
+                      )
+
+    # Make sure sum of values in gaussian kernel equals 1.
+    gaussian_kernel = gaussian_kernel / torch.sum(gaussian_kernel)
+
+    # Reshape to 2d depthwise convolutional weight
+    gaussian_kernel = gaussian_kernel.view(1, 1, kernel_size, kernel_size)
+    gaussian_kernel = gaussian_kernel.repeat(channels, 1, 1, 1)
+
+    gaussian_filter = nn.Conv2d(in_channels=channels, out_channels=channels,
+                                kernel_size=kernel_size, groups=channels, bias=False)
+
+    gaussian_filter.weight.data = gaussian_kernel
+    gaussian_filter.weight.requires_grad = False
+
+    return gaussian_filter.cuda()
+
+
 def HFEN(output, target):
-	return torch.sum(torch.pow(LoG(output) - LoG(target), 2)) / torch.sum(torch.pow(LoG(target), 2))
+    filter = get_gaussian_kernel(5,1.5,3)
+    gradient_p = filter(target)
+    gradient_o = filter(output)
+    gradient_p = LoG(gradient_p)
+    gradient_p = gradient_p/torch.max(gradient_p)
+    gradient_o = LoG(gradient_o)
+    gradient_o = gradient_o/torch.max(gradient_o)
+    criterion = nn.L1Loss()
+    return criterion(gradient_p, gradient_o)
 
 
 def l1_norm(output, target):
-	return torch.sum(torch.abs(output - target)) / torch.numel(output)
+	criterion = nn.L1Loss()
+	return criterion(target,output)
 
 def get_temporal_data(output, target):
 	final_output = output.clone()
 	final_target = target.clone()
 	final_output.fill_(0)
 	final_target.fill_(0)
-
+	val_i = [0.011, 0.044, 0.135, 0.325, 0.607, 0.882, 1]
 	for i in range(1, 7):
-		final_output[:, i, :, :, :] = output[:, i, :, :] - output[:, i-1, :, :]
-		final_target[:, i, :, :, :] = target[:, i, :, :] - target[:, i-1, :, :]
+		final_output[:, i, :, :, :] = (output[:, i, :, :] - output[:, i-1, :, :])
+		final_target[:, i, :, :, :] = (target[:, i, :, :] - target[:, i-1, :, :])
 
 	return final_output, final_target
 
@@ -59,4 +101,4 @@ def loss_func(output, temporal_output, target, temporal_target):
 	lg = HFEN(output, target)
 	lt = temporal_norm(temporal_output, temporal_target)
 
-	return 0.8 * ls + 0.1 * lg + 0.1 * lt, ls, lg, lt
+	return ls, lg, lt

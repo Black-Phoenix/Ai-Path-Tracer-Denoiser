@@ -35,7 +35,7 @@ class AutoEncoderData(Dataset):
         self.m = m
 
     def __getitem__(self, index):
-        input = torch.zeros(7,self.height, self.width,7)
+        input = torch.zeros(7,self.height, self.width,10)
         output = torch.zeros(7,self.height, self.width,3)
         image = self.images[index]
         splits = image.split('_')
@@ -49,12 +49,21 @@ class AutoEncoderData(Dataset):
         for i in range(7):
             image = cv2.imread(self.dir+'/'+'scenes'+'/'+filenames[i])
             image = cv2.resize(image, (256,256))
+
             gt_filename = 'scene_'+scene_number+'_'+str(int(self.m[int(scene_number)]))+'rgb.png'
             gt = cv2.imread(self.dir+'/'+'scenes'+'/'+gt_filename)
             gt = cv2.resize(gt, (256,256))
+
             normal_filename = 'scene_'+scene_number+'_'+'normals.png'
             normal = cv2.imread(self.dir+'/'+'normals'+'/'+normal_filename)
             normal = cv2.resize(normal, (256,256))
+
+            albedo_filename = 'scene_'+scene_number+'_'+'albedos.png'
+            albedo = cv2.imread(self.dir+'/'+'albedos'+'/'+albedo_filename)
+            albedo = cv2.resize(albedo, (256,256))
+
+
+
             depth_filename = 'scene_'+scene_number+'_'+'depth.png'
             depth = cv2.imread(self.dir+'/'+'depths'+'/'+depth_filename,0)
             depth = cv2.resize(depth, (256,256))
@@ -68,8 +77,10 @@ class AutoEncoderData(Dataset):
             input[i,:,:,:3] = torch.from_numpy(image)
             input[i,:,:,3:6] = torch.from_numpy(normal)
             input[i,:,:,6:7] = torch.from_numpy(depth)
+            input[i,:,:,7:10] = torch.from_numpy(albedo)
 
             output[i,:,:,:] = torch.from_numpy(gt)
+            
         return {'image':input.permute(0,3,1,2),'output':output.permute(0,3,1,2)}
 
     def __len__(self):
