@@ -13,11 +13,11 @@ import numpy as np
 import torch
 from preprocess import preprocess
 
-def find_max(dir, num_scenes):
-    m = np.zeros(num_scenes+1)
+def find_max(dir, num_scenes, num_mov):
+    m = np.zeros((num_scenes+1,num_mov+1))
     for file in os.listdir(dir):
         splits = file.split('_')
-        m[int(splits[0])] = max(m[int(splits[0])], int(splits[1][:-4]))
+        m[int(splits[0]),int(splits[1])] = max(m[int(splits[0])][int(splits[1])], int(splits[2][:-4]))
     return m
 
 class AutoEncoderData(Dataset):
@@ -38,8 +38,8 @@ class AutoEncoderData(Dataset):
         image_name = self.images[index]
         splits = image_name.split('_')
         start = index
-        if index > int(self.m[int(splits[0])] - 7):
-            start = int(self.m[int(splits[0])] - 7)
+        if index > int(self.m[int(splits[0]),int(splits[1])] - 6):
+            start = int(self.m[int(splits[0]),int(splits[1])] - 6)
         input = torch.from_numpy(self.inputs[start:start+7,:,:,:].astype(np.float))
         output = torch.from_numpy(self.outputs[start:start+7,:,:,:].astype(np.float))
 
@@ -49,11 +49,6 @@ class AutoEncoderData(Dataset):
         return len(self.images)
 
 if __name__ == '__main__':
-    m = find_max('../test/RGB',10)
-    print(m)
-    inputs, outputs = preprocess('../test','../test/RGB','../test/Depth','../test/Albedos','../test/Normals',m)
-    dataset = AutoEncoderData('../test/RGB',inputs,outputs,(256,256),m)
-    data_num = 1
-    data = dataset[data_num]
-    print(data['image'].shape)
-    print(data['output'].shape)
+    m = find_max('../Test/RGB',1,1)
+    inputs, outputs = preprocess('../Test','../Test/RGB','../Test/Depth','../Test/Albedos','../Test/Normals','../Test/GroundTruth',m)
+    dataset = AutoEncoderData('../Test/RGB',inputs,outputs,(256,256),m)

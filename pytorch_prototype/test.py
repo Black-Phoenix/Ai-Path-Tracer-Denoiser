@@ -19,9 +19,9 @@ from tensorboard import *
 
 logger = Logger('./logs')
 device =  torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-m = find_max('../test/RGB',10)
-inputs, outputs = preprocess('../test','../test/RGB','../test/Depth','../test/Albedos','../test/Normals',m)
-dataset = AutoEncoderData('../test/RGB',inputs,outputs,(256,256),m)
+m = find_max('../Test/RGB',1,1)
+inputs, outputs = preprocess('../Test','../Test/RGB','../Test/Depth','../Test/Albedos','../Test/Normals','../Test/GroundTruth',m)
+dataset = AutoEncoderData('../Test/RGB',inputs,outputs,(256,256),m)
 test_loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
 model =   AutoEncoder(10).to(device)
 checkpoint = torch.load('autoencoder_model.pt')
