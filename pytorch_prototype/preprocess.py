@@ -14,7 +14,7 @@ def preprocess(root_dir, scenes_dir,normals_dir, depth_dir, albedos_dir, gt_dir,
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = cv2.resize(image, (256,256))
 
-        gt = cv2.imread(scenes_dir+'/'+gts[index])
+        gt = cv2.imread(gt_dir+'/'+gts[index])
         gt = cv2.cvtColor(gt, cv2.COLOR_BGR2RGB)
         gt = cv2.resize(gt, (256,256))
 
