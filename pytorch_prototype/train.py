@@ -23,11 +23,12 @@ from torch.optim.lr_scheduler import StepLR
 import warnings
 warnings.filterwarnings("ignore")
 
+root_dir = '../Test/'
 #logger = Logger('./logs')
 device =  torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-m = find_max('../Test/RGB',1,1)
-inputs, outputs = preprocess('../Test','../Test/RGB','../Test/Depth','../Test/Albedos','../Test/Normals','../Test/GroundTruth',m)
-dataset = AutoEncoderData('../Test/RGB',inputs,outputs,(256,256),m)
+m = find_max(root_dir+'RGB',1,1)
+inputs, outputs = preprocess(root_dir,root_dir+'RGB',root_dir+'Depth',root_dir+'Albedos',root_dir+'Normals',root_dir+'GroundTruth',m)
+dataset = AutoEncoderData(root_dir+'RGB',inputs,outputs,(256,256),m)
 train_loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
 model =  AutoEncoder(10).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
