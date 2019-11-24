@@ -15,11 +15,11 @@ import torch, argparse, pdb
 from recurrent_autoencoder_model import *
 from dataloader import *
 from loss import *
-from tensorboard import *
+# from tensorboard import *
 import imageio
 
 root_dir = '../Test/'
-logger = Logger('./logs')
+# logger = Logger('./logs')
 device =  torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 m = find_max(root_dir+'RGB',1,1)
 inputs, outputs = preprocess(root_dir,root_dir+'RGB',root_dir+'Depth',root_dir+'Albedos',root_dir+'Normals',root_dir+'GroundTruth',m)
@@ -34,9 +34,10 @@ res_list = []
 total_step = len(test_loader)
 with torch.no_grad():
     for i, data in enumerate(test_loader):
+        if i%7 !=0:
+            continue
         input = data['image'].float().to(device)
         output = data['output'].float().to(device)
-        print(output.shape)
         for j in range(7):
             fin = np.zeros((256,768,3))
             # fig, ax = plt.subplots(3)
@@ -57,5 +58,4 @@ with torch.no_grad():
             # ax[2].set_title("Ground Truth")
             # plt.show()
             res_list.append(fin)
-        break
 imageio.mimsave('./eval_testimg.gif', res_list)
