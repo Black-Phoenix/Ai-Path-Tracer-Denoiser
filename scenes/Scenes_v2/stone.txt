@@ -127,4 +127,4 @@ VEL 0 0 0
 SCENE C:\Users\Raven\Documents\565_Assignments\Final_Project\Project3-CUDA-Path-Tracer\scenes\Advanced_scenes\stone\ Stone5ok17.obj
 TRANS		0 3 0
 ROTAT		0 0 0
-SCALE		.002 .002 .002
+SCALE		.003 .003 .003

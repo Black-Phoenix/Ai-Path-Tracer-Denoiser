@@ -282,12 +282,6 @@ int Scene::loadScene(string path, string scene_name) {
 	for (int m = 0; m < obj_materials.size(); m++) {
 		// Init new material
 		Material newMaterial;
-		//newMaterial.diffused = false;
-		//newMaterial.reflective = false;
-		//newMaterial.fresnels = false;
-		//newMaterial.glass = false;
-		//newMaterial.refractive = false;
-
 		auto material = obj_materials[m];
 		// Materials
 		if (material.diffuse_texname != "") { // has something
@@ -304,9 +298,9 @@ int Scene::loadScene(string path, string scene_name) {
 						cv::Vec3b &rbg = image.at<cv::Vec3b>(i, j);
 						// Read data into large array
 						glm::vec3 texture;
-						texture[0] = rbg[0] / 255.0;
+						texture[0] = rbg[2] / 255.0; // flip because opencv reads bgr
 						texture[1] = rbg[1] / 255.0;
-						texture[2] = rbg[2] / 255.0;
+						texture[2] = rbg[0] / 255.0;
 						textures.push_back(texture);
 					}
 				}

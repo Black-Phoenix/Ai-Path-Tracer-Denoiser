@@ -346,9 +346,11 @@ __global__ void shadeMaterial(
 					int text_idx = pixel_y * material.col + pixel_x + material.texture_offset;
 					glm::vec3 texColor = textures[text_idx];
 					pathSegments[idx].color *= texColor;
+					scatterRay(pathSegments[idx], intersection, material, rng, true);
 				}
-				//intersectionPoint = getPointOnRay(pathSegments[idx].ray, intersection.t);//pathSegments[idx].ray.origin + pathSegments[idx].ray.direction * intersection.t;
-				scatterRay(pathSegments[idx], intersection, material, rng);
+				else {
+					scatterRay(pathSegments[idx], intersection, material, rng, false);
+				}
 				--pathSegments[idx].remainingBounces;
 			}
 			// If there was no intersection, color the ray black.

@@ -33,8 +33,8 @@ newmtl floor
   Ns 10.0000
   Ni 1.0000
   illum 2
-  Ka 0.725 0.71 0.68 # White
-  Kd 0.725 0.71 0.68
+  Ka  .98 .98 .98 # White
+  Kd .98 .98 .98
   Ks 0 0 0
   Ke 0 0 0
 
@@ -82,7 +82,7 @@ newmtl light
   Ns 10.0000
   Ni 1.0000
   illum 2
-  Ka 0.78 0.78 0.78 # White
-  Kd 0.78 0.78 0.78
+  Ka 1 1 1 # White
+  Kd 1 1 1
   Ks 0 0 0
-  Ke 17 12 4
+  Ke 10 10 10

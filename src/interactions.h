@@ -83,7 +83,6 @@ bool refract(const glm::vec3& v, const glm::vec3& n, float ni_over_nt, glm::vec3
 		return false; // no refracted ray
 }
 
-
 __host__ __device__ float FresnelDielectric_Evaluate(float cosThetaI, float etaI, float etaT)
 {
 	cosThetaI = glm::clamp(cosThetaI, -1.0f, 1.0f);
@@ -112,18 +111,21 @@ __host__ __device__ float FresnelDielectric_Evaluate(float cosThetaI, float etaI
 		((etaIb * cosThetaI) + (etaTb * cosThetaT));
 	return (Rparl * Rparl + Rperp * Rperp) / 2;
 }
+
 __host__ __device__ __inline__ float schlick(float cosine, float ref_idx) {
 	float r0 = (1 - ref_idx) / (1 + ref_idx); // ref_idx = n2/n1
 	r0 = r0 * r0;
 	return r0 + (1 - r0) * pow((1 - cosine), 5);
 }
-__host__ __device__ void SpecularReflection_BxDF(PathSegment & pathSegment, glm::vec3 intersect, glm::vec3 normal, const Material &m) {
-	pathSegment.color *= m.specular.color;
+
+__host__ __device__ void SpecularReflection_BxDF(PathSegment & pathSegment, glm::vec3 intersect, glm::vec3 normal, const Material &m, bool use_texture) {
+	if (!use_texture)
+		pathSegment.color *= m.specular.color;
 	pathSegment.ray.direction = glm::reflect(pathSegment.ray.direction, normal);
 	pathSegment.ray.origin = intersect + (.001f) * pathSegment.ray.direction;
 }
 
-__host__ __device__ void SpecularRefraction_BxDF(PathSegment & pathSegment, glm::vec3 intersect, glm::vec3 normal, const Material &m, thrust::default_random_engine &rng) {
+__host__ __device__ void SpecularRefraction_BxDF(PathSegment & pathSegment, glm::vec3 intersect, glm::vec3 normal, const Material &m, thrust::default_random_engine &rng, bool use_texture) {
 	thrust::uniform_real_distribution<float> u01(0, 1);
 
 	// flip the normal and adjust the eta if we are leaving the  object
@@ -138,13 +140,13 @@ __host__ __device__ void SpecularRefraction_BxDF(PathSegment & pathSegment, glm:
 		pathSegment.color *= 0.0f;
 		wi = glm::reflect(wo, normal);
 	}
-
-	pathSegment.color *= m.specular.color;
+	if (!use_texture)
+		pathSegment.color *= m.specular.color;
 	pathSegment.ray.direction = wi;
 	pathSegment.ray.origin = intersect + (.001f) * pathSegment.ray.direction;
 }
 
-__host__ __device__ void Glass_BxDF(PathSegment & pathSegment, glm::vec3 intersect, glm::vec3 normal, const Material &m, thrust::default_random_engine &rng) {
+__host__ __device__ void Glass_BxDF(PathSegment & pathSegment, glm::vec3 intersect, glm::vec3 normal, const Material &m, thrust::default_random_engine &rng, bool use_texture) {
 	thrust::uniform_real_distribution<float> u01(0, 1);
 	float VdotN = glm::dot(-pathSegment.ray.direction, normal);
 	bool leaving = VdotN < 0.f;
@@ -154,20 +156,23 @@ __host__ __device__ void Glass_BxDF(PathSegment & pathSegment, glm::vec3 interse
 	float fresnel = FresnelDielectric_Evaluate(VdotN, eI, eT) / glm::abs(VdotN);
 
 	if (u01(rng) < fresnel) {
-		SpecularReflection_BxDF(pathSegment, intersect, normal, m);
+		SpecularReflection_BxDF(pathSegment, intersect, normal, m, use_texture);
 	}
 	else {
-		SpecularRefraction_BxDF(pathSegment, intersect, normal, m, rng);
+		SpecularRefraction_BxDF(pathSegment, intersect, normal, m, rng, use_texture);
 	}
 }
-__forceinline__ __host__ __device__ void Lambert_BxDF(PathSegment & pathSegment, glm::vec3 intersect, glm::vec3 normal, const Material &m, thrust::default_random_engine &rng) {
+
+__forceinline__ __host__ __device__ void Lambert_BxDF(PathSegment & pathSegment, glm::vec3 intersect, glm::vec3 normal, const Material &m, thrust::default_random_engine &rng, bool use_texture) {
 	pathSegment.ray.direction = calculateRandomDirectionInHemisphere(glm::normalize(normal), rng);
-	pathSegment.color *= m.color;
-	pathSegment.ray.origin = intersect + (.001f) * pathSegment.ray.direction;
+	if (!use_texture)
+		pathSegment.color *= m.color;
+	pathSegment.ray.origin = intersect + (.01f) * pathSegment.ray.direction;
 }
+
 __host__ __device__ void fresnel(PathSegment & pathSegment,
 	const ShadeableIntersection &intersection,
-	const Material &m, thrust::default_random_engine &rng) {
+	const Material &m, thrust::default_random_engine &rng, bool use_texture) {
 	glm::vec3 dir = pathSegment.ray.direction;
 	glm::vec3 color(1.0f, 1.0f, 1.0f);
 	thrust::uniform_real_distribution<float> dist(0, 1);
@@ -203,24 +208,28 @@ __host__ __device__ void fresnel(PathSegment & pathSegment,
 		dir = calculateRandomDirectionInHemisphere(intersection.surfaceNormal, rng);
 		color = m.color;
 	}
+	if (!use_texture)
+		pathSegment.color *= color;
+	pathSegment.ray.direction = dir;
+	pathSegment.ray.origin = intersection.intersect + dir * 0.01f;
 }
+
 __host__ __device__
 void scatterRay(
 		PathSegment & pathSegment,
 		const ShadeableIntersection &intersection,
         const Material &m,
-        thrust::default_random_engine &rng) {
-	glm::vec3 dir = pathSegment.ray.direction;
-	glm::vec3 color(1.0f, 1.0f, 1.0f);
+        thrust::default_random_engine &rng,
+		bool use_texture=true) {
 	thrust::uniform_real_distribution<float> u01(0, 1);
 	if (m.glass)
-		Glass_BxDF(pathSegment, intersection.intersect, intersection.surfaceNormal, m, rng);
+		Glass_BxDF(pathSegment, intersection.intersect, intersection.surfaceNormal, m, rng, use_texture);
 	else if(m.fresnels)
-		fresnel(pathSegment, intersection, m, rng);
+		fresnel(pathSegment, intersection, m, rng, use_texture);
 	else if (m.reflective)
-		SpecularReflection_BxDF(pathSegment, intersection.intersect, intersection.surfaceNormal, m);
+		SpecularReflection_BxDF(pathSegment, intersection.intersect, intersection.surfaceNormal, m, use_texture);
 	else if (m.refractive)
-			SpecularRefraction_BxDF(pathSegment, intersection.intersect, intersection.surfaceNormal, m, rng);
+			SpecularRefraction_BxDF(pathSegment, intersection.intersect, intersection.surfaceNormal, m, rng, use_texture);
 	else if (m.diffused)
-			Lambert_BxDF(pathSegment, intersection.intersect, intersection.surfaceNormal, m, rng);
+			Lambert_BxDF(pathSegment, intersection.intersect, intersection.surfaceNormal, m, rng, use_texture);
 }
