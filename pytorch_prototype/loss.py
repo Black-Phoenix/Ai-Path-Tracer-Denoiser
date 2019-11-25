@@ -82,11 +82,8 @@ def l1_norm(output, target):
 	return criterion(target,output)
 
 def get_temporal_data(output, target):
-	final_output = output.clone()
-	final_target = target.clone()
-	final_output.fill_(0)
-	final_target.fill_(0)
-	val_i = [0.011, 0.044, 0.135, 0.325, 0.607, 0.882, 1]
+	final_output = torch.zeros_like(output)
+	final_target = torch.zeros_like(target)
 	for i in range(1, 7):
 		final_output[:, i, :, :, :] = (output[:, i, :, :] - output[:, i-1, :, :])
 		final_target[:, i, :, :, :] = (target[:, i, :, :] - target[:, i-1, :, :])
@@ -94,7 +91,8 @@ def get_temporal_data(output, target):
 	return final_output, final_target
 
 def temporal_norm(output, target):
-	return torch.sum(torch.abs(output - target)) / torch.numel(output)
+	criterion = nn.L1Loss()
+	return criterion(target,output)
 
 def loss_func(output, temporal_output, target, temporal_target):
 	ls = l1_norm(output, target)

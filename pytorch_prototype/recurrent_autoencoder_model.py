@@ -22,13 +22,16 @@ class RecurrentBlock(nn.Module):
         if self.downsample:
             self.layer1 = nn.Sequential(
                             nn.Conv2d(in_channel, out_channel, 3, padding = 1),
+                            nn.BatchNorm2d(out_channel),
                             nn.LeakyReLU(negative_slope = 0.1)
                             )
             # It takes in the output from the previous layer concatenated with the hidden layer
             self.layer2 = nn.Sequential(
                             nn.Conv2d(2*out_channel, out_channel, 3, padding = 1),
                             nn.LeakyReLU(negative_slope = 0.1),
+                            nn.BatchNorm2d(out_channel),
                             nn.Conv2d(out_channel, out_channel, 3, padding = 1),
+                            nn.BatchNorm2d(out_channel),
                             nn.LeakyReLU(negative_slope = 0.1)
             )
 
@@ -36,20 +39,25 @@ class RecurrentBlock(nn.Module):
             self.layer1 = nn.Sequential(
 					nn.Upsample(scale_factor=2, mode='nearest'),
 					nn.Conv2d(2 * in_channel, out_channel, 3, padding=1),
+                    nn.BatchNorm2d(out_channel),
 					nn.LeakyReLU(negative_slope=0.1),
 					nn.Conv2d(out_channel, out_channel, 3, padding=1),
+                    nn.BatchNorm2d(out_channel),
 					nn.LeakyReLU(negative_slope=0.1),
 				)
 
         elif self.bottleneck:
             self.layer1 = nn.Sequential(
                             nn.Conv2d(in_channel, out_channel, 3, padding = 1),
+                            nn.BatchNorm2d(out_channel),
                             nn.LeakyReLU(negative_slope=0.1)
                             )
             self.layer2 = nn.Sequential(
                             nn.Conv2d(2*out_channel, out_channel, 3, padding =1),
+                            nn.BatchNorm2d(out_channel),
                             nn.LeakyReLU(negative_slope = 0.1),
                             nn.Conv2d(out_channel, out_channel, 3, padding  = 1),
+                            nn.BatchNorm2d(out_channel),
                             nn.LeakyReLU(negative_slope = 0.1)
                             )
 
