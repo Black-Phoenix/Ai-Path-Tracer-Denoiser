@@ -7,7 +7,7 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 from torch.nn import functional as func
 from PIL import Image
-
+import matplotlib.pyplot as plt
 import torchvision.transforms as transforms
 import numpy as np
 import torch
@@ -66,15 +66,17 @@ def get_gaussian_kernel(kernel_size=3, sigma=2, channels=3):
 
 
 def HFEN(output, target):
-    filter = get_gaussian_kernel(5,1.5,3)
-    gradient_p = filter(target)
-    gradient_o = filter(output)
-    gradient_p = LoG(gradient_p)
-    gradient_p = gradient_p/torch.max(gradient_p)
-    gradient_o = LoG(gradient_o)
-    gradient_o = gradient_o/torch.max(gradient_o)
-    criterion = nn.L1Loss()
-    return criterion(gradient_p, gradient_o)
+	filter = get_gaussian_kernel(5,1.5,3)
+	gradient_p = filter(target)
+	gradient_o = filter(output)
+	gradient_p = LoG(gradient_p)
+	if torch.max(gradient_p) != 0:
+		gradient_p = gradient_p/torch.max(gradient_p)
+	gradient_o = LoG(gradient_o)
+	if torch.max(gradient_o) !=0:
+		gradient_o = gradient_o/torch.max(gradient_o)
+	criterion = nn.L1Loss()
+	return criterion(gradient_p, gradient_o)
 
 
 def l1_norm(output, target):

@@ -27,8 +27,8 @@ root_dir = '../Train/'
 logger = Logger('./logs')
 device =  torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 m = find_max(root_dir+'RGB',1,2)
-inputs, outputs = preprocess(root_dir,root_dir+'RGB',root_dir+'Depth',root_dir+'Albedos',root_dir+'Normals',root_dir+'GroundTruth',m)
-dataset = AutoEncoderData(root_dir+'RGB',inputs,outputs,(256,256),m)
+inputs, outputs = preprocess(root_dir,root_dir+'RGB',root_dir+'Depth',root_dir+'Albedos',root_dir+'Normals',root_dir+'GroundTruth',m,800)
+dataset = AutoEncoderData(root_dir+'RGB',inputs,outputs,(800,800),m,True,128)
 train_loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
 model =  AutoEncoder(10).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
@@ -71,24 +71,21 @@ for epoch in range(100):
             ls, lg, lt = loss_func(output, t_output, target, t_target)
             loss_final += (0.8+val_j[j])*ls + (0.1+val_j[j])*lg + (0.1+val_j[j])*lt
             # if loss_final > 10.0:
-            #     print(ls)
-            #     print(lg)
-            #     print(lt)
-            #     fig, ax = plt.subplots(5)
-            #     ax[0].imshow(output[0,:,:,:].permute(1,2,0).detach().cpu().numpy())
-            #     ax[0].set_title("Output Image")
-            #     ax[1].imshow(target[0,:,:,:].permute(1,2,0).detach().cpu().numpy())
-            #     ax[1].set_title("Ground Truth")
-            #     ax[2].imshow(input[0,j,:3,:,:].permute(1,2,0).detach().cpu().numpy())
-            #     ax[2].set_title("Input")
-            #     ax[3].imshow(t_output[0,:,:,:].permute(1,2,0).detach().cpu().numpy())
-            #     ax[3].set_title("Temporal output")
-            #     ax[4].imshow(t_target[:,j,:3,:,:].permute(1,2,0).detach().cpu().numpy())
-            #     ax[4].set_title("Temporal Target")
-            #     plt.show()
+            # print(ls)
+            # print(lg)
+            # print(lt)
+            # fig, ax = plt.subplots(3)
+            # ax[0].imshow(output[0,:,:,:].permute(1,2,0).detach().cpu().numpy())
+            # ax[0].set_title("Output Image")
+            # ax[1].imshow(target[0,:,:,:].permute(1,2,0).detach().cpu().numpy())
+            # ax[1].set_title("Ground Truth")
+            # ax[2].imshow(input[0,j,:3,:,:].permute(1,2,0).detach().cpu().numpy())
+            # ax[2].set_title("Input")
+            plt.show()
             ls_final += ls
             lg_final += lg
             lt_final += lt
+
         info = {("Total"):loss_final.item(),("L1"):ls_final.item(), ("HFEN"):lg_final.item(),("Temporal"):lt_final.item()}
         if i%5 == 0:
              print ('Epoch [{}/{}], Step [{}/{}], Total Loss: {:.4f}, L1 Loss: {:.4f}, HFEN Loss: {:.4f}, Temporal Loss: {:.4f}'.format(epoch+1,
