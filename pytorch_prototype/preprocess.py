@@ -35,7 +35,8 @@ def preprocess(root_dir, scenes_dir,depth_dir, albedos_dir, normals_dir, gt_dir,
         image = image.astype(np.float) / 255.0
         normal = normal.astype(np.float) / 255.0
         depth = depth.astype(np.float) / 255.0
-
+        albedo = albedo.astype(np.float) / 255.0
+        albedo[albedo == 0.0] = 1
         inputs[index,:,:,:3] = image
         inputs[index,:,:,3:6] = normal
         inputs[index,:,:,6:7] = depth

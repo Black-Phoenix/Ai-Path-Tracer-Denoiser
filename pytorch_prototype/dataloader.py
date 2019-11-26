@@ -36,7 +36,7 @@ class AutoEncoderData(Dataset):
         self.crop_size = crop_size
 
     def __getitem__(self, index):
-        input = torch.zeros(7,self.height, self.width,10)
+        input = torch.zeros(7,self.height, self.width,7)
         output = torch.zeros(7,self.height, self.width,3)
         image_name = self.images[index]
         splits = image_name.split('_')
@@ -68,15 +68,12 @@ if __name__ == '__main__':
     data = dataset[data_num]
     input = data['image'].float().to(device)
     label = data['output'].float().to(device)
-    print(input.shape)
     for j in range(7):
-        fig, ax = plt.subplots(4)
+        fig, ax = plt.subplots(3)
         ax[0].imshow(input[j,:3,:,:].permute(1,2,0).detach().cpu().numpy())
         ax[0].set_title("Input")
         ax[1].imshow(input[j,3:6,:,:].permute(1,2,0).detach().cpu().numpy())
         ax[1].set_title("Normal")
         ax[2].imshow(input[j,6:7,:,:].permute(1,2,0).detach().cpu().numpy()[:,:,0])
         ax[2].set_title("Depth")
-        ax[3].imshow(input[j,7:,:,:].permute(1,2,0).detach().cpu().numpy())
-        ax[3].set_title("Albedo")
         plt.show()

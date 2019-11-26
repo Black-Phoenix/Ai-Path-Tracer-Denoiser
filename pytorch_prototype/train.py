@@ -36,7 +36,7 @@ scheduler = StepLR(optimizer, step_size=40, gamma=0.2)
 
 overall_step = 0
 total_step = len(train_loader)
-for epoch in range(100):
+for epoch in range(800):
     total_loss = 0
     total_loss_num = 0
     #print('Epoch:', epoch,'LR:', scheduler.get_lr())
@@ -70,18 +70,20 @@ for epoch in range(100):
             t_target = temporal_target[:,j,:,:,:]
             ls, lg, lt = loss_func(output, t_output, target, t_target)
             loss_final += (0.8+val_j[j])*ls + (0.1+val_j[j])*lg + (0.1+val_j[j])*lt
-            # if loss_final > 10.0:
+            # # if loss_final > 10.0:
             # print(ls)
             # print(lg)
             # print(lt)
-            # fig, ax = plt.subplots(3)
+            # fig, ax = plt.subplots(4)
             # ax[0].imshow(output[0,:,:,:].permute(1,2,0).detach().cpu().numpy())
             # ax[0].set_title("Output Image")
             # ax[1].imshow(target[0,:,:,:].permute(1,2,0).detach().cpu().numpy())
             # ax[1].set_title("Ground Truth")
             # ax[2].imshow(input[0,j,:3,:,:].permute(1,2,0).detach().cpu().numpy())
             # ax[2].set_title("Input")
-            plt.show()
+            # ax[3].imshow(input[0,j,7:,:,:].permute(1,2,0).detach().cpu().numpy())
+            # ax[3].set_title("Albedo")
+            # plt.show()
             ls_final += ls
             lg_final += lg
             lt_final += lt
@@ -101,5 +103,7 @@ for epoch in range(100):
         total_loss_num += 1
     print("Average loss over Epoch {} = {}".format(epoch, total_loss/total_loss_num))
     #scheduler.step()
-    checkpoint = {'net': model.state_dict()}
-    torch.save(checkpoint,'autoencoder_model_1.pt')
+
+    if epoch%50==0:
+        checkpoint = {'net': model.state_dict()}
+        torch.save(checkpoint,'autoencoder_model_{}.pt'.format(epoch))
