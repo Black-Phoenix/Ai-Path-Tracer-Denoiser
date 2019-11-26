@@ -20,7 +20,7 @@ static double lastY;
 static bool camchanged = true;
 static float dtheta = 0, dphi = 0;
 static glm::vec3 cammove;
-
+int movement_sign = 1;
 float zoom, theta, phi;
 glm::vec3 cameraPosition;
 glm::vec3 ogLookAt; // for recentering the camera
@@ -28,9 +28,11 @@ glm::vec3 ogLookAt; // for recentering the camera
 Scene *scene;
 RenderState *renderState;
 int iteration;
+int frame_number = 0;
 int width;
 int height;
 #define SAVE_DENOISE true
+#define GROUND_TRUTH true
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
@@ -101,17 +103,20 @@ void saveImage() {
     }
 	// Write to disk
 	std::string last_element(filename.substr(filename.rfind("/") + 1));
-	cout << last_element << endl;
 	last_element = last_element.substr(0, last_element.length() - 4);
-	last_element = last_element.substr(6, last_element.length());
-	string OutputFolder = "Training_data/" + last_element + "/";
-	string zero_padded_iter = std::string(4 - to_string(iteration).length(), '0') + to_string(iteration);
-	string rgb_path = "Training_data/RGB/" + last_element + "_" + zero_padded_iter;
+	last_element = last_element.substr(8, last_element.length());
+	string zero_padded_iter = std::string(6 - to_string(frame_number).length(), '0') + to_string(frame_number);
+	string rgb_path;
+	if (GROUND_TRUTH)
+		rgb_path = "../Training_data/GroundTruth/" + last_element + "_2_" + zero_padded_iter;
+	else 
+		rgb_path = "../Training_data/RGB/" + last_element + "_2_" + zero_padded_iter;
+
 	img_rgb.savePNG_scaled(rgb_path);
 	if (samples == 1) {
-			string depth_path = "Training_data/Depth/" + last_element;
-			string normal_path = "Training_data/Normals/" + last_element;
-			string albedo_path = "Training_data/Albedos/" + last_element;
+			string depth_path = "../Training_data/Depth/" + last_element + "_2_" + zero_padded_iter;
+			string normal_path = "../Training_data/Normals/" + last_element + "_2_" + zero_padded_iter;
+			string albedo_path = "../Training_data/Albedos/" + last_element + "_2_" + zero_padded_iter;
 			img_normal.savePNG(normal_path);
 			img_albedo.savePNG(albedo_path);
 			img_depth.savePNG(depth_path);
@@ -169,27 +174,34 @@ void viewDenoiseRaw(int iter) {
 	//cv::imwrite(rgb_path.c_str(), img_rgb);
 	//cv::waitKey(0);
 }
+
 int runCuda() {
     if (camchanged) {
-        iteration = 0;
-        Camera &cam = renderState->camera;
-        cameraPosition.x = zoom * sin(phi) * sin(theta);
-        cameraPosition.y = zoom * cos(theta);
-        cameraPosition.z = zoom * cos(phi) * sin(theta);
+		iteration = 0;
+		Camera &cam = renderState->camera;
+	
+		cameraPosition.x = zoom * sin(phi) * sin(theta);
+		cameraPosition.y = zoom * cos(theta);
+		cameraPosition.z = zoom * cos(phi) * sin(theta);
+		cout << cameraPosition.y << endl;
+		if (cameraPosition.y < -5 && movement_sign < 0)
+			movement_sign = 1;
+		else if (cameraPosition.y > 5 && movement_sign > 0)
+			movement_sign = -1;
+		cam.view = -glm::normalize(cameraPosition);
+		glm::vec3 v = cam.view;
+		glm::vec3 u = glm::vec3(0, 1, 0);//glm::normalize(cam.up);
+		glm::vec3 r = glm::cross(v, u);
+		cam.up = glm::cross(r, v);
+		cam.right = r;
 
-        cam.view = -glm::normalize(cameraPosition);
-        glm::vec3 v = cam.view;
-        glm::vec3 u = glm::vec3(0, 1, 0);//glm::normalize(cam.up);
-        glm::vec3 r = glm::cross(v, u);
-        cam.up = glm::cross(r, v);
-        cam.right = r;
-
-        cam.position = cameraPosition;
-        cameraPosition += cam.lookAt;
-        cam.position = cameraPosition;
-        camchanged = false;
-      }
-
+		cameraPosition += cam.lookAt;
+		cam.position = cameraPosition;
+		camchanged = false;
+     }
+	if (frame_number < 107) {
+		iteration = renderState->iterations;
+	}
     // Map OpenGL buffer object for writing from CUDA on a single GPU
     // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
 
@@ -197,7 +209,7 @@ int runCuda() {
         pathtraceFree();
         pathtraceInit(scene);
     }
-    if (iteration < renderState->iterations) {
+    if (iteration < renderState->iterations) { // actually render more
         uchar4 *pbo_dptr = NULL;
         iteration++;
         cudaGLMapBufferObject((void**)&pbo_dptr, pbo);
@@ -208,18 +220,19 @@ int runCuda() {
 
         // unmap buffer object
         cudaGLUnmapBufferObject(pbo);
-    } else {
-		saveImage();
-        pathtraceFree();
-        cudaDeviceReset();
-		return 1;
-        //exit(EXIT_SUCCESS);
     }
-	if (SAVE_DENOISE)
-		saveImage();
+	// Moving camera
+	if (!GROUND_TRUTH || (GROUND_TRUTH && iteration >= renderState->iterations)) {
+		saveImage(); 
+		phi -= (0.0) / width;
+		theta -= (movement_sign * 10.0) / height;
+		theta = std::fmax(0.001f, std::fmin(theta, PI));
+		camchanged = true;
+		frame_number++;
+	}
+
 	return 0;
 }
-
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     if (action == GLFW_PRESS) {
       switch (key) {
