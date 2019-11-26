@@ -199,8 +199,8 @@ int runCuda() {
 		cam.position = cameraPosition;
 		camchanged = false;
      }
-	if (frame_number < 107) {
-		iteration = renderState->iterations;
+	if (frame_number > 162) {
+		exit(0);
 	}
     // Map OpenGL buffer object for writing from CUDA on a single GPU
     // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
@@ -223,7 +223,8 @@ int runCuda() {
     }
 	// Moving camera
 	if (!GROUND_TRUTH || (GROUND_TRUTH && iteration >= renderState->iterations)) {
-		saveImage(); 
+		if (SAVE_DENOISE)
+			saveImage(); 
 		phi -= (0.0) / width;
 		theta -= (movement_sign * 10.0) / height;
 		theta = std::fmax(0.001f, std::fmin(theta, PI));
