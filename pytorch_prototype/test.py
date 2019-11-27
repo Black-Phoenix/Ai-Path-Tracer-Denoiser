@@ -28,7 +28,7 @@ test_loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False)
 model =   AutoEncoder(10).to(device)
 size = 512
 fin = np.zeros((size,size*3,3))
-checkpoint = torch.load('autoencoder_model_1.pt')
+checkpoint = torch.load('autoencoder_model_0.pt')
 model.load_state_dict(checkpoint['net'])
 overall_step = 0
 res_list = []
@@ -47,10 +47,7 @@ with torch.no_grad():
             fin[:,:size,:] = input_i[0,:3,:,:].permute(1,2,0).detach().cpu().numpy()
             ax[0].imshow(fin[:,:size,:])
             ax[0].set_title("Noisy Image")
-            model.set_input(input_i)
-            if j == 0:
-                model.reset_hidden()
-            pred = model()
+            pred = model(input_i,j)
             fin[:,size:size*2,:]  = pred[0].permute(1,2,0).cpu().numpy()
             ax[1].imshow(fin[:,size:size*2,:])
             ax[1].set_title("Denoised Image")

@@ -117,11 +117,18 @@ class AutoEncoder(nn.Module):
 
         self.pool = nn.MaxPool2d(kernel_size = 2)
 
-    def set_input(self, X):
-        self.input = X
 
-    def forward(self):
-        encoder1 = self.encoder1(self.input)
+    def forward(self, input, j=0):
+        if j==0:
+            self.encoder1[0].init_hidden(input, 1)
+            self.encoder2[0].init_hidden(input, 2)
+            self.encoder3[0].init_hidden(input, 4)
+            self.encoder4[0].init_hidden(input, 8)
+            self.encoder5[0].init_hidden(input, 16)
+
+            self.bottleneck.init_hidden(input, 32)
+
+        encoder1 = self.encoder1(input)
         encoder2 = self.encoder2(encoder1)
         encoder3 = self.encoder3(encoder2)
         encoder4 = self.encoder4(encoder3)
@@ -136,13 +143,3 @@ class AutoEncoder(nn.Module):
         decoder1 = self.decoder1(torch.cat((decoder2, encoder1), dim=1))
 
         return decoder1
-
-    def reset_hidden(self):
-
-        self.encoder1[0].init_hidden(self.input, 1)
-        self.encoder2[0].init_hidden(self.input, 2)
-        self.encoder3[0].init_hidden(self.input, 4)
-        self.encoder4[0].init_hidden(self.input, 8)
-        self.encoder5[0].init_hidden(self.input, 16)
-
-        self.bottleneck.init_hidden(self.input, 32)

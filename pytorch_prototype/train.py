@@ -53,10 +53,7 @@ for epoch in range(800):
         for j in range(7):
             input_i = input[:,j,:,:,:]
             label_i = label[:,j,:,:,:]
-            model.set_input(input_i)
-            if j == 0:
-                model.reset_hidden()
-            output = model()
+            output = model(input_i,j)
             outputs[:,j,:,:,:] = output
             targets[:,j,:,:,:] = label_i
         temporal_output, temporal_target = get_temporal_data(outputs, targets)
