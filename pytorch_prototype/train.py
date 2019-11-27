@@ -32,14 +32,14 @@ dataset = AutoEncoderData(root_dir+'RGB',inputs,outputs,(800,800),m,True,128)
 train_loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
 model =  AutoEncoder(10).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-scheduler = StepLR(optimizer, step_size=40, gamma=0.2)
+scheduler = StepLR(optimizer, step_size=300, gamma=0.2)
 
 overall_step = 0
 total_step = len(train_loader)
 for epoch in range(800):
     total_loss = 0
     total_loss_num = 0
-    #print('Epoch:', epoch,'LR:', scheduler.get_lr())
+    print('Epoch:', epoch,'LR:', scheduler.get_lr())
     for i, data in enumerate(train_loader):
 
         input = data['image'].float().to(device)
@@ -102,7 +102,7 @@ for epoch in range(800):
         total_loss += loss_final.item()
         total_loss_num += 1
     print("Average loss over Epoch {} = {}".format(epoch, total_loss/total_loss_num))
-    #scheduler.step()
+    scheduler.step()
 
     if epoch%50==0:
         checkpoint = {'net': model.state_dict()}
