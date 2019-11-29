@@ -10,6 +10,9 @@ do
 	scene_name=$(basename $f)
 	scene_name=${scene_name%%.*}
 	echo $scene_name
+    if [ ! -d $train/"GroundTruth"/ ]; then
+	  mkdir -p $train/"GroundTruth"/;
+	fi
     if [ ! -d $train/"Albedos"/ ]; then
 	  mkdir -p $train/"Albedos"/;
 	fi
