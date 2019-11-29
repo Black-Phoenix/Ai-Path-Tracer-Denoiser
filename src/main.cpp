@@ -5,9 +5,10 @@
 #include "tiny_obj_loader.h"
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
-#include<filesystem>
-
-#include<Windows.h>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <filesystem>
+#include <torch/script.h>
+#include <Windows.h>
 static std::string startTimeString;
 
 // For camera controls
@@ -31,8 +32,8 @@ int iteration;
 int frame_number = 0;
 int width;
 int height;
-#define SAVE_DENOISE true
-#define GROUND_TRUTH true
+#define SAVE_DENOISE false
+#define GROUND_TRUTH false
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
@@ -124,6 +125,72 @@ void saveImage() {
 	
 }
 
+void save_final(int iter) {
+	cv::Mat img_normals(width, height, CV_32FC3);
+	cv::Mat img_depth(width, height, CV_32FC1);
+	cv::Mat img_albedo(width, height, CV_32FC3);
+	cv::Mat img_rgb(width, height, CV_32FC3);
+	cv::Mat frame;
+	for (int x = 0; x < width; x++) {
+		for (int y = 0; y < height; y++) {
+			int index = x + (y * width);
+			// Normals
+			glm::vec3 dev_normal = renderState->normals[index];
+			cv::Vec3f &normals = img_normals.at<cv::Vec3f>(x, y);
+			normals[0] = dev_normal.x;
+			normals[1] = dev_normal.y;
+			normals[2] = dev_normal.z;
+			// Depth
+			float dev_depth = renderState->depth[index];
+			float &depth = img_depth.at<float>(x, y);
+			depth = dev_depth;
+			// Albedo
+			glm::vec3 dev_albedo = renderState->albedos[index];
+			cv::Vec3f &albedos = img_albedo.at<cv::Vec3f>(x, y);
+			albedos[0] = dev_albedo.x;
+			albedos[1] = dev_albedo.y;
+			albedos[2] = dev_albedo.z;
+			// RGB
+			glm::vec3 dev_rgb = renderState->image[index];
+			cv::Vec3f &rgb = img_rgb.at<cv::Vec3f>(x, y);
+			rgb[0] = dev_rgb.x / iter;
+			rgb[1] = dev_rgb.y / iter;
+			rgb[2] = dev_rgb.z / iter;
+		}
+	}
+	
+	vector<cv::Mat> channels;
+	channels.push_back(img_rgb);
+	channels.push_back(img_normals);
+	channels.push_back(img_albedo);
+	channels.push_back(img_depth);
+	for (int i = 0; i < 4; i++) {
+		cv::rotate(channels[i], channels[i], cv::ROTATE_90_CLOCKWISE);
+	}
+	cv::merge(channels, frame);
+	auto input_tensor = torch::from_blob(frame.data, { 1, width, height, 10 });
+	torch::jit::script::Module module;
+	// Deserialize the ScriptModule from a file using torch::jit::load().
+	module = torch::jit::load(R"(C:\Users\Raven\Documents\565_Assignments\Final_Project\torch_playgrund\cpp_autoencoder_50.pt)");
+	input_tensor = input_tensor.permute({ 0, 3, 1, 2 });
+	input_tensor = input_tensor.to(at::kCUDA);
+	//// Create a vector of inputs.
+	std::vector<torch::jit::IValue> inputs;
+	inputs.push_back(input_tensor);
+
+	// Execute the model and turn its output into a tensor.
+	at::Tensor output = module.forward(inputs).toTensor();
+	output = output.permute({ 0, 2, 3, 1 });
+	output = output.to(at::kCPU);
+	cout << output.size(0) << "x" << output.size(1) << "x" <<
+		output.size(2) << "x" << output.size(3) << "Total:" << output.numel() << endl;
+	cv::Mat cv_mat = cv::Mat::eye(width, height, CV_32FC3);
+	std::memcpy(cv_mat.data, output.data_ptr(), sizeof(float)*output.numel());
+	cv::cvtColor(cv_mat, cv_mat, cv::COLOR_RGB2BGR);
+	cv::imshow("Output", cv_mat);
+	cv::waitKey(0);
+
+}
 void viewDenoiseRaw(int iter) {
 	cv::Mat img_normals(width, height, CV_32FC3);
 	cv::Mat img_depth(width, height, CV_32FC3);
@@ -221,6 +288,8 @@ int runCuda() {
         // unmap buffer object
         cudaGLUnmapBufferObject(pbo);
     }
+	// Render using path tracer
+	save_final(iteration);
 	// Moving camera
 	if (!GROUND_TRUTH || (GROUND_TRUTH && iteration >= renderState->iterations)) {
 		if (SAVE_DENOISE)

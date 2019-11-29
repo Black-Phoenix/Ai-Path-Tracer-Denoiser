@@ -212,6 +212,26 @@ For the next stumble, for a long time, I couldn't figure out why my roof was bla
 - [tinyobjloader](https://github.com/syoyo/tinyobjloader) (Included in repo)
 - Added *common.h* to the CMakeList.txt
 
+## Building Torch Using CMake (With OpenCV)
+
+* Download [Torch]( https://pytorch.org/tutorials/advanced/cpp_export.html ) From the official website (C++ build with or without CUDA) and extract it into the project
+
+* Download CUDNN (Required for Torch) and extract into the project
+
+* First, add the necessary lines from [this post]( https://pytorch.org/tutorials/advanced/cpp_export.html ) to your CMakeLists.txt file (Already one for this project)
+
+* In the build directory, run ```cmake-gui ..``` and point cmake towards the OpenCV build directory (if not already in the path)
+
+* Then close cmake-gui (This is the order because OpenCV is found before Torch) and run the following command (Point it towards the libtorch relative to the build directory)
+
+  ```cmake -DCMAKE_PREFIX_PATH=$PWD/../../libtorch ..```
+
+* Run ```cmake-gui ..``` again and now point ```CUDNN_INCLUDE_PATH``` towards the include folder inside the CUDNN folder.
+
+* Point ```CUDNN_LIBRARY_PATH``` to the library file (```/absolute/path/to/CUDNN/lib/x64/cudnn.lib```)
+
+* Generate the project
+
 ## Useful links
 
 [3D obj files with normals](https://casual-effects.com/data/)

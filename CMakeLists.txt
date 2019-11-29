@@ -36,9 +36,12 @@ if(WIN32)
     set(CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER} CACHE FILEPATH "Host side compiler used by NVCC" FORCE)
 endif(WIN32)
 ########################################
-
+# OpenGL Setup
 find_package(OpenGL REQUIRED)
-
+# Torch setup
+find_package(Torch REQUIRED)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+# Glm Setup
 if(UNIX)
     find_package(glfw3 REQUIRED)
     find_package(GLEW REQUIRED)
@@ -101,4 +104,11 @@ cuda_add_executable(${CMAKE_PROJECT_NAME} ${sources} ${headers})
 target_link_libraries(${CMAKE_PROJECT_NAME}
     ${LIBRARIES}
     ${OpenCV_LIBS}
+    "${TORCH_LIBRARIES}"
     )
+file(GLOB TORCH_DLLS "${TORCH_INSTALL_PREFIX}/lib/*.dll")
+add_custom_command(TARGET ${CMAKE_PROJECT_NAME}
+                 POST_BUILD
+                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                 ${TORCH_DLLS}
+                 $<TARGET_FILE_DIR:${CMAKE_PROJECT_NAME}>)
