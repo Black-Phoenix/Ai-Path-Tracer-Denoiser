@@ -15,8 +15,9 @@ import torch
 from preprocess import preprocess
 
 def find_max(dir, num_scenes, num_mov):
+    images = images = sorted(os.listdir(dir))
     m = np.zeros((num_scenes+1,num_mov+1))
-    for file in os.listdir(dir):
+    for file in images:
         splits = file.split('_')
         m[int(splits[0]),int(splits[1])] = max(m[int(splits[0])][int(splits[1])], int(splits[2][:-4]))
     return m
@@ -34,6 +35,7 @@ class AutoEncoderData(Dataset):
         self.m = m
         self.crop = crop
         self.crop_size = crop_size
+        self.transforms = transforms
 
     def __getitem__(self, index):
         input = torch.zeros(7,self.height, self.width,7)
@@ -44,8 +46,8 @@ class AutoEncoderData(Dataset):
         if index > int(self.m[int(splits[0]),int(splits[1])] - 6):
             start = int(self.m[int(splits[0]),int(splits[1])] - 6)
         if self.crop:
-            crop_width = np.random.randint(self.width-self.crop_size)
-            crop_height = np.random.randint(self.height-self.crop_size)
+            crop_width = np.random.randint(self.width/self.crop_size)*self.crop_size
+            crop_height = np.random.randint(self.height/self.crop_size)*self.crop_size
             input = torch.from_numpy(self.inputs[start:start+7,crop_width:crop_width+self.crop_size,crop_height:crop_height+self.crop_size,:].astype(np.float))
             output = torch.from_numpy(self.outputs[start:start+7,crop_width:crop_width+self.crop_size,crop_height:crop_height+self.crop_size,:].astype(np.float))
         else:

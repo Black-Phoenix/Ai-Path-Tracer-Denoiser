@@ -40,7 +40,7 @@ def preprocess(root_dir, scenes_dir,depth_dir, albedos_dir, normals_dir, gt_dir,
         inputs[index,:,:,:3] = image
         inputs[index,:,:,3:6] = normal
         inputs[index,:,:,6:7] = depth
-        inputs[index,:,:,7:10] = albedo
+        inputs[index,:,:,7:] = albedo
 
         outputs[index] = gt
 

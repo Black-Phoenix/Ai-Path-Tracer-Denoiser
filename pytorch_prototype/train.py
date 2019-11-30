@@ -17,29 +17,38 @@ from dataloader import *
 from loss import *
 from tensorboard import *
 import matplotlib.pyplot as plt
+import torchvision
 from torch.optim.lr_scheduler import StepLR
 
 
 import warnings
 warnings.filterwarnings("ignore")
 
-root_dir = '../Train/'
+root_dir = '../train_2/'
 logger = Logger('./logs')
 device =  torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-m = find_max(root_dir+'RGB',1,2)
-inputs, outputs = preprocess(root_dir,root_dir+'RGB',root_dir+'Depth',root_dir+'Albedos',root_dir+'Normals',root_dir+'GroundTruth',m,800)
-dataset = AutoEncoderData(root_dir+'RGB',inputs,outputs,(800,800),m,True,128)
+
+m = find_max(root_dir+'RGB',15,2)
+inputs, outputs = preprocess(root_dir,root_dir+'RGB',root_dir+'Depth',root_dir+'Albedos',root_dir+'Normals',root_dir+'GroundTruth',m,512)
+dataset = AutoEncoderData(root_dir+'RGB',inputs,outputs,(512,512),m, True, 256)
 train_loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
 model =  AutoEncoder(10).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-scheduler = StepLR(optimizer, step_size=300, gamma=0.2)
+scheduler = StepLR(optimizer, step_size=40, gamma=0.2)
 
+def init_weights(m):
+    if type(m) == nn.Conv2d:
+        torch.nn.init.kaiming_normal_(m.weight, mode = 'fan_in')
+        m.bias.data.fill_(0.01)
+
+model.apply(init_weights)
 overall_step = 0
 total_step = len(train_loader)
 for epoch in range(800):
     total_loss = 0
     total_loss_num = 0
     print('Epoch:', epoch,'LR:', scheduler.get_lr())
+    count = 0
     for i, data in enumerate(train_loader):
 
         input = data['image'].float().to(device)
@@ -67,20 +76,21 @@ for epoch in range(800):
             t_target = temporal_target[:,j,:,:,:]
             ls, lg, lt = loss_func(output, t_output, target, t_target)
             loss_final += (0.8+val_j[j])*ls + (0.1+val_j[j])*lg + (0.1+val_j[j])*lt
-            # # if loss_final > 10.0:
-            # print(ls)
-            # print(lg)
-            # print(lt)
-            # fig, ax = plt.subplots(4)
-            # ax[0].imshow(output[0,:,:,:].permute(1,2,0).detach().cpu().numpy())
-            # ax[0].set_title("Output Image")
-            # ax[1].imshow(target[0,:,:,:].permute(1,2,0).detach().cpu().numpy())
-            # ax[1].set_title("Ground Truth")
-            # ax[2].imshow(input[0,j,:3,:,:].permute(1,2,0).detach().cpu().numpy())
-            # ax[2].set_title("Input")
-            # ax[3].imshow(input[0,j,7:,:,:].permute(1,2,0).detach().cpu().numpy())
-            # ax[3].set_title("Albedo")
-            # plt.show()
+            # if count < 10:
+            # # print(ls)
+            # # print(lg)
+            # # print(lt)
+            #     fig, ax = plt.subplots(4)
+            #     ax[0].imshow(output[0,:,:,:].permute(1,2,0).detach().cpu().numpy())
+            #     ax[0].set_title("Output Image")
+            #     ax[1].imshow(target[0,:,:,:].permute(1,2,0).detach().cpu().numpy())
+            #     ax[1].set_title("Ground Truth")
+            #     ax[2].imshow(input[0,j,:3,:,:].permute(1,2,0).detach().cpu().numpy())
+            #     ax[2].set_title("Input")
+            #     ax[3].imshow(input[0,j,7:,:,:].permute(1,2,0).detach().cpu().numpy())
+            #     ax[3].set_title("Albedo")
+            #     plt.show()
+            #     count+=1
             ls_final += ls
             lg_final += lg
             lt_final += lt
@@ -101,6 +111,6 @@ for epoch in range(800):
     print("Average loss over Epoch {} = {}".format(epoch, total_loss/total_loss_num))
     scheduler.step()
 
-    if epoch%50==0:
+    if epoch%3==0:
         checkpoint = {'net': model.state_dict()}
-        torch.save(checkpoint,'autoencoder_model_{}.pt'.format(epoch))
+        torch.save(checkpoint,'models/autoencoder_model_4_2_{}.pt'.format(epoch))
