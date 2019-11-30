@@ -187,7 +187,7 @@ struct TORCH_API ArgumentSpecCreator {
   using WrittenSlots = std::unordered_set<std::string>;
 
  private:
-  static constexpr size_t DEPTH_LIMIT = 128;
+const static size_t DEPTH_LIMIT = 128;
   void scan(
       const TypePtr& typ,
       size_t depth,

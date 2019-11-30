@@ -107,8 +107,4 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
     "${TORCH_LIBRARIES}"
     )
 file(GLOB TORCH_DLLS "${TORCH_INSTALL_PREFIX}/lib/*.dll")
-add_custom_command(TARGET ${CMAKE_PROJECT_NAME}
-                 POST_BUILD
-                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                 ${TORCH_DLLS}
-                 $<TARGET_FILE_DIR:${CMAKE_PROJECT_NAME}>)
+

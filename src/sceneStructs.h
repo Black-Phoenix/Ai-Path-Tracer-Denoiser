@@ -72,6 +72,7 @@ struct RenderState {
     int traceDepth;
     std::vector<glm::vec3> image;
     std::string imageName;
+	float *host_tensor;
 	std::vector<glm::vec3> normals;
 	std::vector<float> depth;
 	std::vector<glm::vec3> albedos;

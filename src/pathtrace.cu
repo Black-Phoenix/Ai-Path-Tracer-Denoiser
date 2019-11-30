@@ -16,9 +16,8 @@
 #include "intersections.h"
 #include "interactions.h"
 #include <assert.h>
-
 // Optimizations
-#define STREAM_COMPACTION false
+#define STREAM_COMPACTION true
 #define SORT_MATERIAL false
 #define CACHE_BOUNCE false
 #define RAY_CULLING true
@@ -79,19 +78,19 @@ __global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution,
 	}
 }
 
-// Static env
-static Scene * hst_scene = NULL;
-static glm::vec3 * dev_image = NULL;
-static Geom * dev_geoms = NULL;
-static Material * dev_materials = NULL;
-static PathSegment * dev_paths = NULL;
-static ShadeableIntersection * dev_intersections = NULL;
-static ShadeableIntersection * dev_intersections_cache = NULL;
-static Face * dev_faces = NULL;
-static MeshBoundingBox * dev_mesh_box = NULL;
-static glm::vec3 * dev_albedo = NULL;
-static glm::vec3 * dev_normal = NULL;
-static float * dev_depth = NULL;
+__global__ void copy_data(float *dev_data, glm::vec3* dev_vec_data, int offset, glm::ivec2 resolution, float iter) {
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+	int size = resolution.x * resolution.y;
+	if (x < resolution.x && y < resolution.y) {
+		int index = x + (y * resolution.x);
+		glm::vec3 pix = dev_vec_data[index];
+		// Each thread writes one pixel location in the texture (textel)
+		dev_data[index + offset] = pix.x / iter;
+		dev_data[index + size + offset] = pix.y / iter;
+		dev_data[index + size * 2 + offset] = pix.z / iter;
+	}
+}
 
 void pathtraceInit(Scene *scene) {
 	hst_scene = scene;
@@ -119,14 +118,14 @@ void pathtraceInit(Scene *scene) {
 	cudaMalloc(&dev_normal, pixelcount * sizeof(glm::vec3));
 	cudaMalloc(&dev_albedo, pixelcount * sizeof(glm::vec3));
 	cudaMalloc(&dev_depth, pixelcount * sizeof(float));
-	
+	cudaMalloc(&dev_tensor, pixelcount * 10 * sizeof(float));
+
 	cudaMemset(dev_normal, 0, pixelcount * sizeof(glm::vec3));
 	cudaMemset(dev_albedo, 0, pixelcount * sizeof(glm::vec3));
 	cudaMemset(dev_depth, 0, pixelcount * sizeof(float));
-
+	cudaMemset(dev_tensor, 0, pixelcount * 10 * sizeof(float));
 
 	cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
-
 	// Mesh
 	cudaMalloc(&dev_faces, scene->faces.size() * sizeof(Face));
 	cudaMemcpy(dev_faces, scene->faces.data(), scene->faces.size() * sizeof(Face), cudaMemcpyHostToDevice);
@@ -150,6 +149,8 @@ void pathtraceFree() {
 	cudaFree(dev_normal);
 	cudaFree(dev_albedo);
 	cudaFree(dev_depth);
+	// Vector versions of the same data
+	cudaFree(dev_tensor);
 	checkCUDAError("pathtraceFree");
 }
 
@@ -317,6 +318,21 @@ glm::mat4 buildTransformationMatrix(glm::vec3 translation, glm::vec3 rotation, g
 	glm::mat4 scaleMat = glm::scale(glm::mat4(), scale);
 	return translationMat * rotationMat * scaleMat;
 }
+//__global__ void test_copy_kernel(at::Tensor torch_data, glm::vec3 * dev_rgb, glm::vec3 * dev_normal, glm::vec3 * dev_albedo, float * dev_depth, int width) {
+//	const int i = (blockIdx.x * blockDim.x) + threadIdx.x;
+//	const int j = (blockIdx.y * blockDim.y) + threadIdx.y;
+//	const int index = j * width + i;
+//	torch_data.data()[0][0][i][j] = dev_rgb[index].x;
+//	//torch_data[0][1][i][j] = dev_rgb[index].y;
+//	//torch_data[0][2][i][j] = dev_rgb[index].z;
+//	//torch_data[0][3][i][j] = dev_normal[index].x;
+//	//torch_data[0][4][i][j] = dev_normal[index].y;
+//	//torch_data[0][5][i][j] = dev_normal[index].z;
+//	//torch_data[0][6][i][j] = dev_albedo[index].x;
+//	//torch_data[0][7][i][j] = dev_albedo[index].y;
+//	//torch_data[0][8][i][j] = dev_albedo[index].z;
+//	//torch_data[0][9][i][j] = dev_depth[index];
+//}
 
 __global__ void moveGeom(Geom * geoms, int geoms_size, float dt)
 {
@@ -513,22 +529,33 @@ void pathtrace(uchar4 *pbo, int frame, int iter) {
 	num_paths = pixelcount;
 	// Assemble this iteration and apply it to the image
 	dim3 numBlocksPixels = (pixelcount + blockSize1d - 1) / blockSize1d;
-	finalGather << <numBlocksPixels, blockSize1d >> > (num_paths, dev_image, dev_paths);
+	finalGather <<<numBlocksPixels, blockSize1d >> > (num_paths, dev_image, dev_paths);
 
 	///////////////////////////////////////////////////////////////////////////
-
+	/// Try to pass through the network
+	
+	///////////////////////////////////////////////////////////////////////////
 	// Send results to OpenGL buffer for rendering
 	sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_image);
+	checkCUDAError("Send to opengl error");
+	copy_data<< <blocksPerGrid2d, blockSize2d >> > (dev_tensor, dev_image, 0, cam.resolution, iter);
+	if (iter == 1) {
+		copy_data << <blocksPerGrid2d, blockSize2d >> > (dev_tensor, dev_normal, pixelcount * 3, cam.resolution, iter); // normals
+		copy_data << <blocksPerGrid2d, blockSize2d >> > (dev_tensor, dev_albedo, pixelcount * 6, cam.resolution, iter); // albedos
+		cudaMemcpy(dev_tensor + pixelcount * 9, dev_depth, sizeof(float) * pixelcount, cudaMemcpyDeviceToDevice);// depth
+	}
+	checkCUDAError("Copy error");
+	cudaMemcpy(hst_scene->state.host_tensor, dev_tensor, pixelcount * 10 * sizeof(float), cudaMemcpyDeviceToHost);
 	// Retrieve image from GPU
 	cudaMemcpy(hst_scene->state.image.data(), dev_image,
 		pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
-	if (iter == 1) {
-		cudaMemcpy(hst_scene->state.normals.data(), dev_normal,
-			pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
-		cudaMemcpy(hst_scene->state.albedos.data(), dev_albedo,
-			pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
-		cudaMemcpy(hst_scene->state.depth.data(), dev_depth,
-			pixelcount * sizeof(float), cudaMemcpyDeviceToHost);
-	}
+	//if (iter == 1) {
+	//	cudaMemcpy(hst_scene->state.normals.data(), dev_normal,
+	//		pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+	//	cudaMemcpy(hst_scene->state.albedos.data(), dev_albedo,
+	//		pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+	//	cudaMemcpy(hst_scene->state.depth.data(), dev_depth,
+	//		pixelcount * sizeof(float), cudaMemcpyDeviceToHost);
+	//}
 	checkCUDAError("pathtrace");
 }
