@@ -24,7 +24,7 @@ int movement_sign = 1;
 float zoom, theta, phi;
 glm::vec3 cameraPosition;
 glm::vec3 ogLookAt; // for recentering the camera
-
+float x_vel = 0, y_vel = 10.0;
 Scene *scene;
 RenderState *renderState;
 int iteration;
@@ -32,7 +32,7 @@ int frame_number = 0;
 int width;
 int height;
 #define SAVE_DENOISE true
-#define GROUND_TRUTH true
+#define GROUND_TRUTH false
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
@@ -104,19 +104,19 @@ void saveImage() {
 	// Write to disk
 	std::string last_element(filename.substr(filename.rfind("/") + 1));
 	last_element = last_element.substr(0, last_element.length() - 4);
-	last_element = last_element.substr(8, last_element.length());
+	last_element = last_element.substr(6, last_element.length());
 	string zero_padded_iter = std::string(6 - to_string(frame_number).length(), '0') + to_string(frame_number);
 	string rgb_path;
 	if (GROUND_TRUTH)
-		rgb_path = "../Training_data/GroundTruth/" + last_element + "_2_" + zero_padded_iter;
+		rgb_path = "./Training_data/GroundTruth/" + last_element + "_1_" + zero_padded_iter;
 	else 
-		rgb_path = "../Training_data/RGB/" + last_element + "_2_" + zero_padded_iter;
+		rgb_path = "./Training_data/RGB/" + last_element + "_1_" + zero_padded_iter;
 
 	img_rgb.savePNG_scaled(rgb_path);
 	if (samples == 1) {
-			string depth_path = "../Training_data/Depth/" + last_element + "_2_" + zero_padded_iter;
-			string normal_path = "../Training_data/Normals/" + last_element + "_2_" + zero_padded_iter;
-			string albedo_path = "../Training_data/Albedos/" + last_element + "_2_" + zero_padded_iter;
+			string depth_path = "./Training_data/Depth/" + last_element + "_1_" + zero_padded_iter;
+			string normal_path = "./Training_data/Normals/" + last_element + "_1_" + zero_padded_iter;
+			string albedo_path = "./Training_data/Albedos/" + last_element + "_1_" + zero_padded_iter;
 			img_normal.savePNG(normal_path);
 			img_albedo.savePNG(albedo_path);
 			img_depth.savePNG(depth_path);
@@ -183,11 +183,19 @@ int runCuda() {
 		cameraPosition.x = zoom * sin(phi) * sin(theta);
 		cameraPosition.y = zoom * cos(theta);
 		cameraPosition.z = zoom * cos(phi) * sin(theta);
-		cout << cameraPosition.y << endl;
-		if (cameraPosition.y < -5 && movement_sign < 0)
-			movement_sign = 1;
-		else if (cameraPosition.y > 5 && movement_sign > 0)
-			movement_sign = -1;
+		cout << cameraPosition.x << endl;
+		if (y_vel > 0) {
+			if (cameraPosition.y < -5 && movement_sign < 0)
+				movement_sign = 1;
+			else if (cameraPosition.y > 5 && movement_sign > 0)
+				movement_sign = -1;
+		}
+		else if (x_vel > 0) {
+			if (cameraPosition.x < -5 && movement_sign > 0)
+				movement_sign = -1;
+			else if (cameraPosition.x > 5 && movement_sign < 0)
+				movement_sign = 1;
+		}
 		cam.view = -glm::normalize(cameraPosition);
 		glm::vec3 v = cam.view;
 		glm::vec3 u = glm::vec3(0, 1, 0);//glm::normalize(cam.up);
@@ -225,8 +233,8 @@ int runCuda() {
 	if (!GROUND_TRUTH || (GROUND_TRUTH && iteration >= renderState->iterations)) {
 		if (SAVE_DENOISE)
 			saveImage(); 
-		phi -= (0.0) / width;
-		theta -= (movement_sign * 10.0) / height;
+		phi -= (movement_sign * x_vel) / width;
+		theta -= (movement_sign * y_vel) / height;
 		theta = std::fmax(0.001f, std::fmin(theta, PI));
 		camchanged = true;
 		frame_number++;
