@@ -114,15 +114,7 @@ void pathtraceInit(Scene *scene) {
 		cudaMalloc(&dev_intersections_cache, pixelcount * sizeof(ShadeableIntersection));
 
 	// Denoiser stuff
-
-	cudaMalloc(&dev_normal, pixelcount * sizeof(glm::vec3));
-	cudaMalloc(&dev_albedo, pixelcount * sizeof(glm::vec3));
-	cudaMalloc(&dev_depth, pixelcount * sizeof(float));
 	cudaMalloc(&dev_tensor, pixelcount * 10 * sizeof(float));
-
-	cudaMemset(dev_normal, 0, pixelcount * sizeof(glm::vec3));
-	cudaMemset(dev_albedo, 0, pixelcount * sizeof(glm::vec3));
-	cudaMemset(dev_depth, 0, pixelcount * sizeof(float));
 	cudaMemset(dev_tensor, 0, pixelcount * 10 * sizeof(float));
 
 	cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
@@ -146,9 +138,6 @@ void pathtraceFree() {
 	cudaFree(dev_faces);
 	cudaFree(dev_mesh_box);
 	// Denoiser
-	cudaFree(dev_normal);
-	cudaFree(dev_albedo);
-	cudaFree(dev_depth);
 	// Vector versions of the same data
 	cudaFree(dev_tensor);
 	checkCUDAError("pathtraceFree");
@@ -216,8 +205,7 @@ __global__ void computeIntersections(
 	, Face * face
 	, int face_size
 	, MeshBoundingBox * mesh_box
-	, glm::vec3 *pixel_normals
-	, float *pixel_depth
+	, float *dev_tensor
 	, ShadeableIntersection * intersections
 	, int iter
 )
@@ -303,8 +291,10 @@ __global__ void computeIntersections(
 			intersections[path_index].intersect = intersect_point;
 		}
 		if (DENOISE && depth == 0 && iter == 1 && intersections[path_index].t >= 0){
-			pixel_normals[path_index] = normal;
-			pixel_depth[path_index] = intersections[path_index].t;
+			dev_tensor[num_paths * 3 + path_index] = normal.x;
+			dev_tensor[num_paths * 4 + path_index] = normal.y;
+			dev_tensor[num_paths * 5 + path_index] = normal.z;
+			dev_tensor[num_paths * 9 + path_index] = intersections[path_index].t;
 		}
 	}
 }
@@ -355,7 +345,7 @@ __global__ void shadeMaterial(
 	, ShadeableIntersection * shadeableIntersections
 	, PathSegment * pathSegments
 	, Material * materials
-	, glm::vec3 *pixel_albedo
+	, float *dev_tensor
 	, int depth
 )
 {
@@ -396,7 +386,9 @@ __global__ void shadeMaterial(
 			pathSegments[idx].remainingBounces = 0;
 		}
 		if (DENOISE && depth == 0 && iter == 1 && intersection.t >= 0) {
-		pixel_albedo[idx] = pathSegments[idx].color;
+			dev_tensor[num_paths * 6 + idx] = pathSegments[idx].color.x; // albedo
+			dev_tensor[num_paths * 7 + idx] = pathSegments[idx].color.y; // albedo
+			dev_tensor[num_paths * 8 + idx] = pathSegments[idx].color.z; // albedo
 		}
 	}
 	
@@ -479,7 +471,7 @@ void pathtrace(uchar4 *pbo, int frame, int iter) {
 		if (depth == 0 && CACHE_BOUNCE && iter == 1) {
 			cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
 			computeIntersections << <numblocksPathSegmentTracing, blockSize1d >> > (depth,
-				num_paths, dev_paths, dev_geoms, hst_scene->geoms.size(), dev_faces, hst_scene->faces.size(), dev_mesh_box, dev_normal, dev_depth, dev_intersections, iter);
+				num_paths, dev_paths, dev_geoms, hst_scene->geoms.size(), dev_faces, hst_scene->faces.size(), dev_mesh_box, dev_tensor, dev_intersections, iter);
 			// cache
 			cudaMemcpy(dev_intersections_cache, dev_intersections, pixelcount * sizeof(ShadeableIntersection), cudaMemcpyDeviceToDevice);
 		}
@@ -490,7 +482,7 @@ void pathtrace(uchar4 *pbo, int frame, int iter) {
 		else {
 			cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
 			computeIntersections << <numblocksPathSegmentTracing, blockSize1d >> > (depth,
-				num_paths, dev_paths, dev_geoms, hst_scene->geoms.size(), dev_faces, hst_scene->faces.size(), dev_mesh_box, dev_normal, dev_depth, dev_intersections, iter);
+				num_paths, dev_paths, dev_geoms, hst_scene->geoms.size(), dev_faces, hst_scene->faces.size(), dev_mesh_box, dev_tensor, dev_intersections, iter);
 		}
 		checkCUDAError("trace one bounce");
 		cudaDeviceSynchronize();
@@ -511,7 +503,7 @@ void pathtrace(uchar4 *pbo, int frame, int iter) {
 			dev_intersections,
 			dev_paths,
 			dev_materials,
-			dev_albedo,
+			dev_tensor,
 			depth
 			);
 		depth++;
@@ -539,23 +531,8 @@ void pathtrace(uchar4 *pbo, int frame, int iter) {
 	sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_image);
 	checkCUDAError("Send to opengl error");
 	copy_data<< <blocksPerGrid2d, blockSize2d >> > (dev_tensor, dev_image, 0, cam.resolution, iter);
-	if (iter == 1) {
-		copy_data << <blocksPerGrid2d, blockSize2d >> > (dev_tensor, dev_normal, pixelcount * 3, cam.resolution, iter); // normals
-		copy_data << <blocksPerGrid2d, blockSize2d >> > (dev_tensor, dev_albedo, pixelcount * 6, cam.resolution, iter); // albedos
-		cudaMemcpy(dev_tensor + pixelcount * 9, dev_depth, sizeof(float) * pixelcount, cudaMemcpyDeviceToDevice);// depth
-	}
 	checkCUDAError("Copy error");
 	cudaMemcpy(hst_scene->state.host_tensor, dev_tensor, pixelcount * 10 * sizeof(float), cudaMemcpyDeviceToHost);
 	// Retrieve image from GPU
-	cudaMemcpy(hst_scene->state.image.data(), dev_image,
-		pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
-	//if (iter == 1) {
-	//	cudaMemcpy(hst_scene->state.normals.data(), dev_normal,
-	//		pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
-	//	cudaMemcpy(hst_scene->state.albedos.data(), dev_albedo,
-	//		pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
-	//	cudaMemcpy(hst_scene->state.depth.data(), dev_depth,
-	//		pixelcount * sizeof(float), cudaMemcpyDeviceToHost);
-	//}
 	checkCUDAError("pathtrace");
 }

@@ -38,6 +38,7 @@ int width;
 int height;
 #define SAVE_DENOISE false
 #define GROUND_TRUTH false
+#define DENOISE_RENDER true
 
 //-------------------------------
 //-------------MAIN--------------
@@ -66,7 +67,6 @@ int main(int argc, char** argv) {
     glm::vec3 right = glm::cross(view, up);
     up = glm::cross(right, view);
     cameraPosition = cam.position;
-	renderState->host_tensor = new float[width * height * 10];
     // compute phi (horizontal) and theta (vertical) relative 3D axis
     // so, (0 0 1) is forward, (0 1 0) is up
     glm::vec3 viewXZ = glm::vec3(view.x, 0.0f, view.z);
@@ -85,48 +85,6 @@ int main(int argc, char** argv) {
     return 0;
 }
 
-void saveImage() {
-    float samples = iteration;
-    // output image file
-    image img_rgb(width, height);
-	image img_normal(width, height);
-	image img_albedo(width, height);
-	image img_depth(width, height);
-
-    for (int x = 0; x < width; x++) {
-        for (int y = 0; y < height; y++) {
-            int index = x + (y * width);
-			img_rgb.setPixel(width - 1 - x, y, glm::vec3(renderState->image[index]) / samples);
-			if (samples == 1) {
-				img_normal.setPixel(width - 1 - x, y, glm::vec3(glm::abs(renderState->normals[index]) * 100.f));
-				img_albedo.setPixel(width - 1 - x, y, glm::vec3(renderState->albedos[index] * 255.f));
-				img_depth.setPixel(width - 1 - x, y, glm::vec3(renderState->depth[index] * 10.f, 0, 0));
-			}
-        }
-    }
-	// Write to disk
-	std::string last_element(filename.substr(filename.rfind("/") + 1));
-	last_element = last_element.substr(0, last_element.length() - 4);
-	last_element = last_element.substr(8, last_element.length());
-	string zero_padded_iter = std::string(6 - to_string(frame_number).length(), '0') + to_string(frame_number);
-	string rgb_path;
-	if (GROUND_TRUTH)
-		rgb_path = "../Training_data/GroundTruth/" + last_element + "_2_" + zero_padded_iter;
-	else 
-		rgb_path = "../Training_data/RGB/" + last_element + "_2_" + zero_padded_iter;
-
-	img_rgb.savePNG_scaled(rgb_path);
-	if (samples == 1) {
-			string depth_path = "../Training_data/Depth/" + last_element + "_2_" + zero_padded_iter;
-			string normal_path = "../Training_data/Normals/" + last_element + "_2_" + zero_padded_iter;
-			string albedo_path = "../Training_data/Albedos/" + last_element + "_2_" + zero_padded_iter;
-			img_normal.savePNG(normal_path);
-			img_albedo.savePNG(albedo_path);
-			img_depth.savePNG(depth_path);
-		}
-	
-}
-
 void view_tensor(at::Tensor t) {
 	at::Tensor output;
 	output = t.to(at::kCPU);
@@ -137,82 +95,82 @@ void view_tensor(at::Tensor t) {
 	std::memcpy(cv_mat.data, output.data_ptr(), sizeof(float)*output.numel());
 	cv::imshow("Output", cv_mat);
 }
-void network_prediction_slow(int iter) {
-	cv::Mat img_normals(width, height, CV_32FC3);
-	cv::Mat img_depth(width, height, CV_32FC1);
-	cv::Mat img_albedo(width, height, CV_32FC3);
-	cv::Mat img_rgb(width, height, CV_32FC3);
-	cv::Mat frame;
-	for (int x = 0; x < width; x++) {
-		for (int y = 0; y < height; y++) {
-			int index = x + (y * width);
-			// Normals
-			glm::vec3 dev_normal = renderState->normals[index];
-			cv::Vec3f &normals = img_normals.at<cv::Vec3f>(x, y);
-			normals[0] = dev_normal.x;
-			normals[1] = dev_normal.y;
-			normals[2] = dev_normal.z;
-			// Depth
-			float dev_depth = renderState->depth[index];
-			float &depth = img_depth.at<float>(x, y);
-			depth = dev_depth;
-			// Albedo
-			glm::vec3 dev_albedo = renderState->albedos[index];
-			cv::Vec3f &albedos = img_albedo.at<cv::Vec3f>(x, y);
-			albedos[0] = dev_albedo.x;
-			albedos[1] = dev_albedo.y;
-			albedos[2] = dev_albedo.z;
-			// RGB
-			glm::vec3 dev_rgb = renderState->image[index];
-			cv::Vec3f &rgb = img_rgb.at<cv::Vec3f>(x, y);
-			rgb[0] = dev_rgb.x / iter;
-			rgb[1] = dev_rgb.y / iter;
-			rgb[2] = dev_rgb.z / iter;
-		}
-	}
-	try {
-		vector<cv::Mat> channels;
-		channels.push_back(img_rgb);
-		channels.push_back(img_normals);
-		channels.push_back(img_albedo);
-		channels.push_back(img_depth);
-		for (int i = 0; i < 4; i++) {
-			cv::rotate(channels[i], channels[i], cv::ROTATE_90_CLOCKWISE);
-		}
-		cv::merge(channels, frame);
-		auto input_tensor = torch::from_blob(frame.data, { 1, width, height, 10 });
-		torch::jit::script::Module module;
-		// Deserialize the ScriptModule from a file using torch::jit::load().
-		module = torch::jit::load(R"(C:\Users\Raven\Documents\565_Assignments\Final_Project\Project3-CUDA-Path-Tracer\cpp_autoencoder_780.pt)");
-		input_tensor = input_tensor.permute({ 0, 3, 1, 2 });
-		input_tensor = input_tensor.to(at::kCUDA);
-		//// Create a vector of inputs.
-		std::vector<torch::jit::IValue> inputs;
-		inputs.push_back(input_tensor);
-
-		// Execute the model and turn its output into a tensor.
-		at::Tensor output = module.forward(inputs).toTensor();
-		output = output.permute({ 0, 2, 3, 1 });
-		output = output.to(at::kCPU);
-		cout << output.size(0) << "x" << output.size(1) << "x" <<
-			output.size(2) << "x" << output.size(3) << "Total:" << output.numel() << endl;
-		cv::Mat cv_mat = cv::Mat::eye(width, height, CV_32FC3);
-		std::memcpy(cv_mat.data, output.data_ptr(), sizeof(float)*output.numel());
-		cv::cvtColor(cv_mat, cv_mat, cv::COLOR_RGB2BGR);
-		cv::imshow("Output", cv_mat);
-		cv::waitKey(0);
-	}
-	catch (const exception e) {
-		std::cerr << "error\n" << e.what();
-	}
-}
+//void network_prediction_slow(int iter) {
+//	cv::Mat img_normals(width, height, CV_32FC3);
+//	cv::Mat img_depth(width, height, CV_32FC1);
+//	cv::Mat img_albedo(width, height, CV_32FC3);
+//	cv::Mat img_rgb(width, height, CV_32FC3);
+//	cv::Mat frame;
+//	for (int x = 0; x < width; x++) {
+//		for (int y = 0; y < height; y++) {
+//			int index = x + (y * width);
+//			// Normals
+//			glm::vec3 dev_normal = renderState->normals[index];
+//			cv::Vec3f &normals = img_normals.at<cv::Vec3f>(x, y);
+//			normals[0] = dev_normal.x;
+//			normals[1] = dev_normal.y;
+//			normals[2] = dev_normal.z;
+//			// Depth
+//			float dev_depth = renderState->depth[index];
+//			float &depth = img_depth.at<float>(x, y);
+//			depth = dev_depth;
+//			// Albedo
+//			glm::vec3 dev_albedo = renderState->albedos[index];
+//			cv::Vec3f &albedos = img_albedo.at<cv::Vec3f>(x, y);
+//			albedos[0] = dev_albedo.x;
+//			albedos[1] = dev_albedo.y;
+//			albedos[2] = dev_albedo.z;
+//			// RGB
+//			glm::vec3 dev_rgb = renderState->image[index];
+//			cv::Vec3f &rgb = img_rgb.at<cv::Vec3f>(x, y);
+//			rgb[0] = dev_rgb.x / iter;
+//			rgb[1] = dev_rgb.y / iter;
+//			rgb[2] = dev_rgb.z / iter;
+//		}
+//	}
+//	try {
+//		vector<cv::Mat> channels;
+//		channels.push_back(img_rgb);
+//		channels.push_back(img_normals);
+//		channels.push_back(img_albedo);
+//		channels.push_back(img_depth);
+//		for (int i = 0; i < 4; i++) {
+//			cv::rotate(channels[i], channels[i], cv::ROTATE_90_CLOCKWISE);
+//		}
+//		cv::merge(channels, frame);
+//		auto input_tensor = torch::from_blob(frame.data, { 1, width, height, 10 });
+//		torch::jit::script::Module module;
+//		// Deserialize the ScriptModule from a file using torch::jit::load().
+//		module = torch::jit::load(R"(C:\Users\Raven\Documents\565_Assignments\Final_Project\Project3-CUDA-Path-Tracer\cpp_autoencoder_780.pt)");
+//		input_tensor = input_tensor.permute({ 0, 3, 1, 2 });
+//		input_tensor = input_tensor.to(at::kCUDA);
+//		//// Create a vector of inputs.
+//		std::vector<torch::jit::IValue> inputs;
+//		inputs.push_back(input_tensor);
+//
+//		// Execute the model and turn its output into a tensor.
+//		at::Tensor output = module.forward(inputs).toTensor();
+//		output = output.permute({ 0, 2, 3, 1 });
+//		output = output.to(at::kCPU);
+//		cout << output.size(0) << "x" << output.size(1) << "x" <<
+//			output.size(2) << "x" << output.size(3) << "Total:" << output.numel() << endl;
+//		cv::Mat cv_mat = cv::Mat::eye(width, height, CV_32FC3);
+//		std::memcpy(cv_mat.data, output.data_ptr(), sizeof(float)*output.numel());
+//		cv::cvtColor(cv_mat, cv_mat, cv::COLOR_RGB2BGR);
+//		cv::imshow("Output", cv_mat);
+//		cv::waitKey(0);
+//	}
+//	catch (const exception e) {
+//		std::cerr << "error\n" << e.what();
+//	}
+//}
 void network_prediction_faster_version(float *rgb) {
 	try {
 		// Create the tensor
 		auto input_tensor = torch::from_blob(rgb, { 1, 10, width, height });
 		input_tensor = input_tensor.to(at::kCUDA);
 		// Load the model
-		static torch::jit::script::Module module = torch::jit::load(R"(C:\Users\Raven\Documents\565_Assignments\Final_Project\Project3-CUDA-Path-Tracer\cpp_autoencoder_780.pt)");
+		static torch::jit::script::Module module = torch::jit::load(R"(C:\Users\Raven\Documents\565_Assignments\Final_Project\Project3-CUDA-Path-Tracer\cpp_autoencoder.pt)");
 		// Create the input stuff
 		std::vector<torch::jit::IValue> inputs;
 		inputs.push_back(input_tensor);
@@ -223,56 +181,6 @@ void network_prediction_faster_version(float *rgb) {
 	catch (const exception e) {
 		std::cerr << "error\n" << e.what();
 	}
-}
-void viewDenoiseRaw(int iter) {
-	cv::Mat img_normals(width, height, CV_32FC3);
-	cv::Mat img_depth(width, height, CV_32FC3);
-	cv::Mat img_albedo(width, height, CV_32FC3);
-	cv::Mat img_rgb(width, height, CV_32FC3);
-	for (int x = 0; x < width; x++) {
-		for (int y = 0; y < height; y++) {
-			int index = x + (y * width);
-			// Normals
-			glm::vec3 dev_normal = renderState->normals[index];
-			cv::Vec3f &normals = img_normals.at<cv::Vec3f>(x, y);
-			normals[0] = dev_normal.x;
-			normals[1] = dev_normal.y;
-			normals[2] = dev_normal.z;
-			// Depth
-			float dev_depth = renderState->depth[index];
-			cv::Vec3f &depth = img_depth.at<cv::Vec3f>(x, y);
-			depth[0] = dev_depth;
-			depth[1] = 0;
-			depth[2] = 0;
-			// Albedo
-			glm::vec3 dev_albedo = renderState->albedos[index];
-			cv::Vec3f &albedos = img_albedo.at<cv::Vec3f>(x, y);
-			albedos[0] = dev_albedo.x;
-			albedos[1] = dev_albedo.y;
-			albedos[2] = dev_albedo.z;
-			// RGB
-			glm::vec3 dev_rgb = renderState->image[index];
-			cv::Vec3f &rgb = img_rgb.at<cv::Vec3f>(x, y);
-			rgb[0] = dev_rgb.x / iter;
-			rgb[1] = dev_rgb.y / iter;
-			rgb[2] = dev_rgb.z / iter;
-		}
-	}
-	// Rotate stuff
-	cv::rotate(img_normals, img_normals, cv::ROTATE_90_CLOCKWISE);
-	cv::rotate(img_depth, img_depth, cv::ROTATE_90_CLOCKWISE);
-	cv::rotate(img_albedo, img_albedo, cv::ROTATE_90_CLOCKWISE);
-	cv::rotate(img_rgb, img_rgb, cv::ROTATE_90_CLOCKWISE);
-	// Save
-	//string depth_path = "../Training_data/Scene_1/" + to_string(iter) + "depth" + string(".png");
-	//cv::imwrite(depth_path.c_str(), img_depth);
-	//string normal_path = "../Training_data/Scene_1/" + to_string(iter) + "normals" + string(".png");
-	//cv::imwrite(normal_path.c_str(), img_normals);
-	//string albedo_path = "../Training_data/Scene_1/" + to_string(iter) + "albedo" + string(".png");
-	//cv::imwrite(albedo_path.c_str(), img_albedo);
-	//string rgb_path = "../Training_data/Scene_1/" + to_string(iter) + "rgb" + string(".png");
-	//cv::imwrite(rgb_path.c_str(), img_rgb);
-	//cv::waitKey(0);
 }
 
 int runCuda() {
@@ -319,11 +227,10 @@ int runCuda() {
         // unmap buffer object
         cudaGLUnmapBufferObject(pbo);
     }
-	network_prediction_faster_version(renderState->host_tensor);
 	// Moving camera
 	if (!GROUND_TRUTH || (GROUND_TRUTH && iteration >= renderState->iterations)) {
-		if (SAVE_DENOISE)
-			saveImage(); 
+		if (DENOISE_RENDER)
+			network_prediction_faster_version(renderState->host_tensor);
 		phi -= (0.0) / width;
 		theta -= (movement_sign * 10.0) / height;
 		theta = std::fmax(0.001f, std::fmin(theta, PI));
@@ -337,11 +244,9 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     if (action == GLFW_PRESS) {
       switch (key) {
       case GLFW_KEY_ESCAPE:
-        saveImage();
         glfwSetWindowShouldClose(window, GL_TRUE);
         break;
       case GLFW_KEY_S:
-        saveImage();
         break;
       case GLFW_KEY_SPACE:
         /*camchanged = true;

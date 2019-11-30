@@ -153,15 +153,8 @@ int Scene::loadCamera() {
 
     //set up render camera stuff
     int arraylen = camera.resolution.x * camera.resolution.y;
-    state.image.resize(arraylen);
-	state.albedos.resize(arraylen);
-	state.normals.resize(arraylen);
-	state.depth.resize(arraylen);
-    std::fill(state.image.begin(), state.image.end(), glm::vec3());
-	std::fill(state.albedos.begin(), state.albedos.end(), glm::vec3());
-	std::fill(state.normals.begin(), state.normals.end(), glm::vec3());
-	std::fill(state.depth.begin(), state.depth.end(), 0.0f);
     cout << "Loaded camera!" << endl;
+	state.host_tensor = new float[arraylen * 10];
     return 1;
 }
 
