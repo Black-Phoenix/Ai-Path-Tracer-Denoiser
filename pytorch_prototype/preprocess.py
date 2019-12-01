@@ -8,9 +8,10 @@ def preprocess(root_dir, scenes_dir,depth_dir, albedos_dir, normals_dir, gt_dir,
     depths = sorted(os.listdir(depth_dir))
     albedos = sorted(os.listdir(albedos_dir))
     gts = sorted(os.listdir(gt_dir))
-    inputs = np.zeros((len(images),op_size,op_size,10))
-    outputs = np.zeros((len(images),op_size,op_size,3))
     for index in range(len(images)):
+        inputs = np.zeros((op_size, op_size, 10))
+        outputs= np.zeros((op_size, op_size, 3))
+
         image = cv2.imread(scenes_dir+'/'+images[index])
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = cv2.resize(image, (op_size,op_size))
@@ -30,18 +31,19 @@ def preprocess(root_dir, scenes_dir,depth_dir, albedos_dir, normals_dir, gt_dir,
         depth = cv2.imread(depth_dir+'/'+depths[index],0)
         depth = cv2.resize(depth, (op_size,op_size))
         depth = np.expand_dims(depth, axis=2)
-
+        #
         gt = gt.astype(np.float) / 255.0
         image = image.astype(np.float) / 255.0
-        normal = normal.astype(np.float) / 255.0
-        depth = depth.astype(np.float) / 255.0
+        normal = normal.astype(np.float) / 100.0
+        depth = depth.astype(np.float) / 10.0
         albedo = albedo.astype(np.float) / 255.0
         albedo[albedo == 0.0] = 1
-        inputs[index,:,:,:3] = image
-        inputs[index,:,:,3:6] = normal
-        inputs[index,:,:,6:7] = depth
-        inputs[index,:,:,7:] = albedo
-
-        outputs[index] = gt
-
-    return inputs,outputs
+        
+        inputs[:,:,:3] = image
+        inputs[:,:,3:6] = normal
+        inputs[:,:,6:7] = depth
+        inputs[:,:,7:] = albedo
+        outputs = gt
+        #print(scenes_dir+'/'+images[index][:-4])
+        np.save(root_dir+'/'+'input/'+images[index][:-4],inputs)
+        np.save(root_dir+'/'+'gt/'+images[index][:-4],outputs)
