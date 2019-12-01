@@ -89,10 +89,12 @@ void view_tensor(at::Tensor t) {
 	at::Tensor output;
 	output = t.to(at::kCPU);
 	
-	std::cout << output.size(0) << "x" << output.size(1) << "x" <<
-		output.size(2) << "x" << output.size(3) << "Total:" << output.numel() << endl;
+
+	//std::cout << output.size(0) << "x" << output.size(1) << "x" <<
+	//	output.size(2) << "x" << output.size(3) << "Total:" << output.numel() << endl;
 	cv::Mat cv_mat = cv::Mat::eye(width, height, CV_32FC3);
 	std::memcpy(cv_mat.data, output.data_ptr(), sizeof(float)*output.numel());
+	cv::cvtColor(cv_mat, cv_mat, cv::COLOR_RGB2BGR);
 	cv::imshow("Output", cv_mat);
 }
 //void network_prediction_slow(int iter) {
@@ -170,7 +172,7 @@ void network_prediction_faster_version(float *rgb) {
 		auto input_tensor = torch::from_blob(rgb, { 1, 10, width, height });
 		input_tensor = input_tensor.to(at::kCUDA);
 		// Load the model
-		static torch::jit::script::Module module = torch::jit::load(R"(C:\Users\Raven\Documents\565_Assignments\Final_Project\Project3-CUDA-Path-Tracer\cpp_autoencoder.pt)");
+		static torch::jit::script::Module module = torch::jit::load(R"(C:\Users\Raven\Documents\565_Assignments\Final_Project\Project3-CUDA-Path-Tracer\cpp_autoencoder_3.pt)");
 		// Create the input stuff
 		std::vector<torch::jit::IValue> inputs;
 		inputs.push_back(input_tensor);
@@ -181,6 +183,10 @@ void network_prediction_faster_version(float *rgb) {
 	catch (const exception e) {
 		std::cerr << "error\n" << e.what();
 	}
+	//auto input_tensor = torch::from_blob(rgb, { 1, 3, width, height });
+	//input_tensor = input_tensor.permute({ 0, 2, 3, 1 });
+	//input_tensor = input_tensor.to(at::kCUDA);
+	//view_tensor(input_tensor);
 }
 
 int runCuda() {
@@ -206,9 +212,6 @@ int runCuda() {
 		cam.position = cameraPosition;
 		camchanged = false;
      }
-	if (frame_number > 162) { // This is for data generation consistancy
-		exit(0);
-	}
     // Map OpenGL buffer object for writing from CUDA on a single GPU
     // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
     if (iteration == 0) {
@@ -232,7 +235,7 @@ int runCuda() {
 		if (DENOISE_RENDER)
 			network_prediction_faster_version(renderState->host_tensor);
 		phi -= (0.0) / width;
-		theta -= (movement_sign * 10.0) / height;
+		theta -= (movement_sign * 0.0) / height;
 		theta = std::fmax(0.001f, std::fmin(theta, PI));
 		camchanged = true;
 		frame_number++;

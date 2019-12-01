@@ -79,16 +79,17 @@ __global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution,
 }
 
 __global__ void copy_data(float *dev_data, glm::vec3* dev_vec_data, int offset, glm::ivec2 resolution, float iter) {
-	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+	int x = ((blockIdx.x * blockDim.x) + threadIdx.x);
+	int y = ((blockIdx.y * blockDim.y) + threadIdx.y);
 	int size = resolution.x * resolution.y;
-	if (x < resolution.x && y < resolution.y) {
-		int index = x + (y * resolution.x);
-		glm::vec3 pix = dev_vec_data[index];
+	if (x < resolution.x  && y < resolution.y) {
+		int src_index = (resolution.x - x - 1) + (y * resolution.x);
+		int dest_index = x + (y * resolution.x);
+		glm::vec3 pix = dev_vec_data[src_index];
 		// Each thread writes one pixel location in the texture (textel)
-		dev_data[index + offset] = pix.x / iter;
-		dev_data[index + size + offset] = pix.y / iter;
-		dev_data[index + size * 2 + offset] = pix.z / iter;
+		dev_data[dest_index + offset] = pix.x / iter;
+		dev_data[dest_index + size + offset] = pix.y / iter;
+		dev_data[dest_index + size * 2 + offset] = pix.z / iter;
 	}
 }
 
@@ -208,7 +209,8 @@ __global__ void computeIntersections(
 	, float *dev_tensor
 	, ShadeableIntersection * intersections
 	, int iter
-)
+	, int width
+) // amke sure width = height
 {
 	int path_index = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -291,10 +293,14 @@ __global__ void computeIntersections(
 			intersections[path_index].intersect = intersect_point;
 		}
 		if (DENOISE && depth == 0 && iter == 1 && intersections[path_index].t >= 0){
-			dev_tensor[num_paths * 3 + path_index] = normal.x;
-			dev_tensor[num_paths * 4 + path_index] = normal.y;
-			dev_tensor[num_paths * 5 + path_index] = normal.z;
-			dev_tensor[num_paths * 9 + path_index] = intersections[path_index].t;
+			// figure out x, y given size
+			int y = path_index % width; // col
+			int x = path_index / width; // row
+			int new_1d = (width - y - 1) + x * width;
+			dev_tensor[num_paths * 3 + new_1d] = normal.x; // normals//3
+			dev_tensor[num_paths * 4 + new_1d] = normal.y;
+			dev_tensor[num_paths * 5 + new_1d] = normal.z;
+			dev_tensor[num_paths * 6 + new_1d] = intersections[path_index].t; // depth
 		}
 	}
 }
@@ -347,6 +353,7 @@ __global__ void shadeMaterial(
 	, Material * materials
 	, float *dev_tensor
 	, int depth
+	, int width
 )
 {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -386,9 +393,20 @@ __global__ void shadeMaterial(
 			pathSegments[idx].remainingBounces = 0;
 		}
 		if (DENOISE && depth == 0 && iter == 1 && intersection.t >= 0) {
-			dev_tensor[num_paths * 6 + idx] = pathSegments[idx].color.x; // albedo
-			dev_tensor[num_paths * 7 + idx] = pathSegments[idx].color.y; // albedo
-			dev_tensor[num_paths * 8 + idx] = pathSegments[idx].color.z; // albedo
+			// figure out x, y given size
+			int y = idx % width; // col
+			int x = idx / width; // row
+			int new_1d = (width - y - 1) + x * width;
+			if (pathSegments[idx].color != glm::vec3(0)) {
+				dev_tensor[num_paths * 7 + new_1d] = pathSegments[idx].color.x; // albedo
+				dev_tensor[num_paths * 8 + new_1d] = pathSegments[idx].color.y; // albedo
+				dev_tensor[num_paths * 9 + new_1d] = pathSegments[idx].color.z; // albedo
+			}
+			else { // this is a hack because the networks was trained like this
+				dev_tensor[num_paths * 7 + new_1d] = 1;
+				dev_tensor[num_paths * 8 + new_1d] = 1;
+				dev_tensor[num_paths * 9 + new_1d] = 1;
+			}
 		}
 	}
 	
@@ -428,7 +446,7 @@ void pathtrace(uchar4 *pbo, int frame, int iter) {
 	const int traceDepth = hst_scene->state.traceDepth;
 	const Camera &cam = hst_scene->state.camera;
 	const int pixelcount = cam.resolution.x * cam.resolution.y;
-
+	assert(cam.resolution.x == cam.resolution.y);
 	// 2D block for generating ray from camera
 	const dim3 blockSize2d(8, 8);
 	const dim3 blocksPerGrid2d(
@@ -471,7 +489,7 @@ void pathtrace(uchar4 *pbo, int frame, int iter) {
 		if (depth == 0 && CACHE_BOUNCE && iter == 1) {
 			cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
 			computeIntersections << <numblocksPathSegmentTracing, blockSize1d >> > (depth,
-				num_paths, dev_paths, dev_geoms, hst_scene->geoms.size(), dev_faces, hst_scene->faces.size(), dev_mesh_box, dev_tensor, dev_intersections, iter);
+				num_paths, dev_paths, dev_geoms, hst_scene->geoms.size(), dev_faces, hst_scene->faces.size(), dev_mesh_box, dev_tensor, dev_intersections, iter, cam.resolution.x);
 			// cache
 			cudaMemcpy(dev_intersections_cache, dev_intersections, pixelcount * sizeof(ShadeableIntersection), cudaMemcpyDeviceToDevice);
 		}
@@ -482,7 +500,7 @@ void pathtrace(uchar4 *pbo, int frame, int iter) {
 		else {
 			cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
 			computeIntersections << <numblocksPathSegmentTracing, blockSize1d >> > (depth,
-				num_paths, dev_paths, dev_geoms, hst_scene->geoms.size(), dev_faces, hst_scene->faces.size(), dev_mesh_box, dev_tensor, dev_intersections, iter);
+				num_paths, dev_paths, dev_geoms, hst_scene->geoms.size(), dev_faces, hst_scene->faces.size(), dev_mesh_box, dev_tensor, dev_intersections, iter, cam.resolution.x);
 		}
 		checkCUDAError("trace one bounce");
 		cudaDeviceSynchronize();
@@ -504,7 +522,8 @@ void pathtrace(uchar4 *pbo, int frame, int iter) {
 			dev_paths,
 			dev_materials,
 			dev_tensor,
-			depth
+			depth,
+			cam.resolution.x
 			);
 		depth++;
 		checkCUDAError("Shader"); 
