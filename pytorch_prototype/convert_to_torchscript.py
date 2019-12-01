@@ -18,14 +18,14 @@ from loss import *
 # from tensorboard import *
 import imageio
 
-root_dir = '../train_2/'
+root_dir = 'F:/training_data/'
 device =  torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 m = find_max(root_dir+'RGB',15,2, 5)
-dataset = AutoEncoderData(root_dir+'RGB',inputs,outputs,(512,512),m)
+dataset = AutoEncoderData(root_dir+'RGB',root_dir+'input',root_dir+'gt',(512,512),m)
 test_loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False)
 data = next(iter(test_loader))
 model =  AutoEncoder(10).to(device)
-checkpoint = torch.load('model/autoencoder_model_4_2_168.pt')
+checkpoint = torch.load('./models/autoencoder_model_12_3.pt')
 model.load_state_dict(checkpoint['net'])
 traced_script_module = torch.jit.trace(model.forward, data['image'][:,0,:,:,:].float().to(device))
-traced_script_module.save("cpp_autoencoder_4_2_168.pt")
+traced_script_module.save("./cpp_autoencoder_3.pt")
