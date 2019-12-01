@@ -20,9 +20,8 @@ import imageio
 
 root_dir = '../train_2/'
 device =  torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-m = find_max(root_dir+'RGB',15,2)
-inputs, outputs = preprocess(root_dir,root_dir+'RGB',root_dir+'Depth',root_dir+'Albedos',root_dir+'Normals',root_dir+'GroundTruth',m,800)
-dataset = AutoEncoderData(root_dir+'RGB',inputs,outputs,(800,800),m)
+m = find_max(root_dir+'RGB',15,2, 5)
+dataset = AutoEncoderData(root_dir+'RGB',inputs,outputs,(512,512),m)
 test_loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False)
 data = next(iter(test_loader))
 model =  AutoEncoder(10).to(device)
