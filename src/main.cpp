@@ -172,7 +172,8 @@ void network_prediction_faster_version(float *rgb) {
 		auto input_tensor = torch::from_blob(rgb, { 1, 10, width, height });
 		input_tensor = input_tensor.to(at::kCUDA);
 		// Load the model
-		static torch::jit::script::Module module = torch::jit::load(R"(C:\Users\Raven\Documents\565_Assignments\Final_Project\Project3-CUDA-Path-Tracer\cpp_autoencoder_3.pt)");
+		static torch::jit::script::Module module = torch::jit::load
+		(R"(C:\Users\Raven\Documents\565_Assignments\Final_Project\Project3-CUDA-Path-Tracer\cpp_autoencoder_24.pt)");
 		// Create the input stuff
 		std::vector<torch::jit::IValue> inputs;
 		inputs.push_back(input_tensor);
@@ -190,6 +191,7 @@ void network_prediction_faster_version(float *rgb) {
 }
 
 int runCuda() {
+	
     if (camchanged) {
 		iteration = 0;
 		Camera &cam = renderState->camera;
@@ -212,6 +214,10 @@ int runCuda() {
 		cam.position = cameraPosition;
 		camchanged = false;
      }
+	if (frame_number > 162) {
+		cout << "Done" << endl;
+		exit(0);
+	}
     // Map OpenGL buffer object for writing from CUDA on a single GPU
     // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
     if (iteration == 0) {
@@ -232,15 +238,15 @@ int runCuda() {
     }
 	// Moving camera
 	if (!GROUND_TRUTH || (GROUND_TRUTH && iteration >= renderState->iterations)) {
-		if (DENOISE_RENDER)
+		if (DENOISE_RENDER) {
 			network_prediction_faster_version(renderState->host_tensor);
+		}
 		phi -= (0.0) / width;
-		theta -= (movement_sign * 0.0) / height;
+		theta -= (movement_sign * 10.0) / height;
 		theta = std::fmax(0.001f, std::fmin(theta, PI));
 		camchanged = true;
 		frame_number++;
 	}
-
 	return 0;
 }
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
