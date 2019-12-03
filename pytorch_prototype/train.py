@@ -25,14 +25,12 @@ import timeit
 import warnings
 warnings.filterwarnings("ignore")
 
-root_dir = 'F:/training_data/'
+root_dir = '../train_data/'
 logger = Logger('./logs')
 device =  torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 model =  AutoEncoder(10).to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-scheduler = StepLR(optimizer, step_size=25, gamma=0.2)
 
 def init_weights(m):
     if type(m) == nn.Conv2d:
@@ -41,16 +39,21 @@ def init_weights(m):
 
 
 model.apply(init_weights)
+# checkpoint = torch.load('models/autoencoder_model_sponza_27.pt')
+# model.load_state_dict(checkpoint['net'])
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+scheduler = StepLR(optimizer, step_size=25, gamma=0.2)
 
 overall_step = 0
-m = find_max(root_dir+'RGB',15,2, 5)
+m = find_max(root_dir+'RGB',4,1,1)
+m = np.cumsum(m,axis=0)
 print(m)
-preprocess(root_dir,root_dir+'RGB',root_dir+'Depth',root_dir+'Albedos',root_dir+'Normals',root_dir+'GroundTruth',m,512)
+# preprocess(root_dir,root_dir+'RGB',root_dir+'Depth',root_dir+'Albedos',root_dir+'Normals',root_dir+'GroundTruth',m,512)
 dataset = AutoEncoderData(root_dir+'RGB',root_dir+'input',root_dir+'gt',(512,512),m, True, 256)
 train_loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
 total_step = len(train_loader)
 
-for epoch in range(30):
+for epoch in range(100):
     start = timeit.default_timer()
     total_loss = 0
     total_loss_num = 0
@@ -121,4 +124,6 @@ for epoch in range(30):
     print("Time {}".format(stop-start))
     if epoch%3==0:
         checkpoint = {'net': model.state_dict()}
-        torch.save(checkpoint,'./models/autoencoder_model_12_{}.pt'.format(epoch))
+        torch.save(checkpoint,'./models/autoencoder_model_all_{}.pt'.format(epoch))
+checkpoint = {'net': model.state_dict()}
+torch.save(checkpoint,'./models/autoencoder_model_all.pt')

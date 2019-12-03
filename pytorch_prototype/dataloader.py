@@ -66,12 +66,14 @@ class AutoEncoderData(Dataset):
 
 if __name__ == '__main__':
     device =  torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    root_dir = '../test/'
+    root_dir = '../train_data/'
 
-    m = find_max('../test/RGB',13,1,1)
-    preprocess(root_dir,root_dir+'RGB',root_dir+'Depth',root_dir+'Albedos',root_dir+'Normals',root_dir+'GroundTruth',m,512)
-    data_num = 1
-    dataset = AutoEncoderData('../test/RGB','../test/input','../test/gt',(512,512),m, True, 256)
+    m = find_max('../train_data/RGB',4,1,1)
+    m = np.cumsum(m,axis=0)
+    print(m)
+    # preprocess(root_dir,root_dir+'RGB',root_dir+'Depth',root_dir+'Albedos',root_dir+'Normals',root_dir+'GroundTruth',m,512)
+    data_num = 170
+    dataset = AutoEncoderData(root_dir+'RGB',root_dir+'input',root_dir+'gt',(512,512),m)
     data = dataset[data_num]
     input = data['image'].float().to(device)
     label = data['output'].float().to(device)
