@@ -18,7 +18,7 @@ from loss import *
 # from tensorboard import *
 import imageio
 
-root_dir = '../test_data/'
+root_dir = '../elephant_traning_data/'
 # logger = Logger('./logs')
 device =  torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 m = find_max(root_dir+'RGB',2,1,1)
@@ -29,7 +29,7 @@ test_loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False)
 model =   AutoEncoder(10).to(device)
 size = 512
 fin = np.zeros((size,size*3,3))
-checkpoint = torch.load('models/autoencoder_model_all_9.pt')
+checkpoint = torch.load('models/autoencoder_model_all_21.pt')
 model.load_state_dict(checkpoint['net'])
 overall_step = 0
 res_list = []
@@ -63,4 +63,4 @@ with torch.no_grad():
             #ax[2].set_title("Ground Truth")
             #plt.show()
             res_list.append(fin)
-imageio.mimsave('./eval_testimg_lv.gif', res_list)
+imageio.mimsave('./eval_testimg_ele.gif', res_list)

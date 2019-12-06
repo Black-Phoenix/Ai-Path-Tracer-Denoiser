@@ -15,7 +15,7 @@ import torch, argparse, pdb
 from recurrent_autoencoder_model import *
 from dataloader import *
 from loss import *
-from tensorboard import *
+# from tensorboard import *
 import matplotlib.pyplot as plt
 import torchvision
 from torch.optim.lr_scheduler import StepLR
@@ -25,8 +25,8 @@ import timeit
 import warnings
 warnings.filterwarnings("ignore")
 
-root_dir = '../train_data/'
-logger = Logger('./logs')
+root_dir = '/media/dewang/3574401F56DFCAB1/training_data_elephant/'
+# logger = Logger('./logs')
 device =  torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
@@ -45,7 +45,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 scheduler = StepLR(optimizer, step_size=25, gamma=0.2)
 
 overall_step = 0
-m = find_max(root_dir+'RGB',4,1,1)
+m = find_max(root_dir+'RGB',1,3,5)
 m = np.cumsum(m,axis=0)
 print(m)
 # preprocess(root_dir,root_dir+'RGB',root_dir+'Depth',root_dir+'Albedos',root_dir+'Normals',root_dir+'GroundTruth',m,512)
@@ -109,8 +109,8 @@ for epoch in range(100):
         if i%5 == 0:
              print ('Epoch [{}/{}], Step [{}/{}], Total Loss: {:.4f}, L1 Loss: {:.4f}, HFEN Loss: {:.4f}, Temporal Loss: {:.4f}'.format(epoch+1,
                                                                                                    200, i+1, total_step, loss_final.item(),ls_final.item(),lg_final.item(),lt_final.item()))
-        for tag, value in info.items():
-            logger.scalar_summary(tag, value, overall_step+1)
+        # for tag, value in info.items():
+        #     logger.scalar_summary(tag, value, overall_step+1)
         overall_step += 1
         optimizer.zero_grad()
         loss_final.backward()

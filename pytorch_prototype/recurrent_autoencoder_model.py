@@ -65,7 +65,6 @@ class RecurrentBlock(nn.Module):
         if self.downsample:
              out1 = self.layer1(X)
              out2 = self.layer2(torch.cat((out1, self.hidden), dim=1))
-
              self.hidden = out2
 
              return out2
@@ -127,7 +126,6 @@ class AutoEncoder(nn.Module):
             self.encoder5[0].init_hidden(input, 16)
 
             self.bottleneck.init_hidden(input, 32)
-
         encoder1 = self.encoder1(input)
         encoder2 = self.encoder2(encoder1)
         encoder3 = self.encoder3(encoder2)
@@ -135,7 +133,6 @@ class AutoEncoder(nn.Module):
         encoder5 = self.encoder5(encoder4)
 
         bottleneck = self.bottleneck(encoder5)
-
         decoder5 = self.decoder5(torch.cat((bottleneck, encoder5), dim=1))
         decoder4 = self.decoder4(torch.cat((decoder5, encoder4), dim=1))
         decoder3 = self.decoder3(torch.cat((decoder4, encoder3), dim=1))
