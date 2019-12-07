@@ -30,6 +30,7 @@ The idea of a path tracer is to simulate the effect light and materials have on 
 * Anti Aliasing
 * Normal debugging view
 * Loading arbitrary meshes and ray culling
+* Experimental mtl file parsing and texture loading
 ## Cornell Box
 
 ![Ref image](./imgs/REFERENCE_cornell.5000samp.png)
@@ -42,7 +43,7 @@ To show the effect of depth on the render, We decided to render a reflective int
 
 | Depth | Render                   | Comment                                                      |
 | ----- | ------------------------ | ------------------------------------------------------------ |
-| 1     | ![](./imgs/depth/1.png)  | For this render, we see no reflections at all. The no path tracing case. |
+| 1     | ![](./imgs/depth/1.png)  | For this render, we see no reflections at all. The no path tracing case. AKA albedos |
 | 2     | ![](./imgs/depth/2.png)  | We start to see some reflections (only the simplest ones).   |
 | 3     | ![](./imgs/depth/3.png)  | We can see more reflections on the reflection of the orbs in the walls. |
 | 4     | ![](./imgs/depth/4.png)  | We now have better refractions.                              |
@@ -66,14 +67,42 @@ To see the effect of iterations on render quality, we went with the same image w
 | 2000       | ![](./imgs/iter/2000.png) |
 | 5000       | ![](./imgs/iter/5000.png) |
 
+## Data Generation pipeline
 
-## Dependencies & CMake changes
+### Movements
 
-- CUDA 10+
-- [tinyobjloader](https://github.com/syoyo/tinyobjloader) (Included in repo)
-- Added *common.h* to the CMakeList.txt
+This project involved sommthing over temporal data, so the data generation. avg x frames per scene, 2 movements
 
-## Building Torch Using CMake (With OpenCV)
+![](./imgs/motion.gif)
+
+### Components
+
+ To generate training data, we used the path tracer to output the albedos, depth maps,  1 sample per pixel and the normals for each surface for each frame in a movement. scaled values for OpenCV (and unscaled later)
+
+![](./imgs/data_gen.gif)
+
+
+
+## Denoising Network 
+### Architecture
+#### Loss
+
+## Building the project
+
+### Dependencies
+
+- Path Tracer Code
+  - CUDA 10+
+  - [tinyobjloader](https://github.com/syoyo/tinyobjloader)
+  - Torch C++
+  - CuDNN
+  - OpenCV
+- Network Training
+  - PyTorch
+  - Numpy
+  - OpenCV
+
+### Building Torch Using CMake (With OpenCV)
 
 * Download [Torch]( https://pytorch.org/tutorials/advanced/cpp_export.html ) From the official website (C++ build with or without CUDA) and extract it into the project
 
@@ -92,6 +121,11 @@ To see the effect of iterations on render quality, we went with the same image w
 * Point ```CUDNN_LIBRARY_PATH``` to the library file (```/absolute/path/to/CUDNN/lib/x64/cudnn.lib```)
 
 * Generate the project
+## Results
+
+### Qualitative
+
+### Quantitative
 
 ## Useful links
 
