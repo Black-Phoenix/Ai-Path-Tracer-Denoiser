@@ -18,9 +18,41 @@ The repo is dedicated to the implementation of the paper titled [Interactive Rec
 The Path tracer was implemented path tracer written entirely in C++ and CUDA accelerated while the network was created and trained in PyTorch. The inference is done using the C++ bindings of Torch. 
 
 Below is an overview of the pipeline. The black line is the path followed during training and the green line is used during inference.
-
-
 ![](./imgs/overview.PNG)
+
+## Results
+
+### Qualitative
+
+* Reflective Sponza
+
+  ![](./imgs/results/refl.gif)
+
+* Classroom
+
+  ![](./imgs/results/classroom.gif)
+
+* Diffused Sponza
+
+  ![](./imgs/results/diff_sponza.gif)
+
+* Cornell box
+
+  ![](./imgs/results/cornell.gif)
+
+### Quantitative
+
+* Time to Train 
+
+  ![](./imgs/results/cpuvgpu.png)
+
+* Avg Inference time for different approaches
+
+  ![](./imgs/results/infer.png)
+
+* Plot for a single fps
+
+
 ## Path Tracing Overview
 
 The idea of a path tracer is to simulate the effect light and materials have on other objects in the scene. This path tracer is both the first and last step of this project; data generation and inference are done using similar code. More information can be found on [this repo](https://github.com/Black-Phoenix/Project3-CUDA-Path-Tracer), which is dedicated to the path tracer itself.
@@ -41,25 +73,15 @@ The idea of a path tracer is to simulate the effect light and materials have on 
 
 ## Cornell Box
 
- <div style="text-align:center"><img src="./imgs/REFERENCE_cornell.5000samp.png" width="200" height="200">
+ <div style="text-align:center"><img src="./imgs/REFERENCE_cornell.5000samp.png" width="400" height="400">
 
 The Cornell box is a simple stage, consisting of 5 diffusive walls (1 red, 1 green and the other 3 white). In the above sample, a diffusive sphere.
-
 
 
 ### Effect of iterations on a render
 
 To see the effect of iterations on render quality, we went with the same image we used above (with a depth of 8) to test the effect of iteration on render for a semi-complex scene. From visual inspection, 2000 seems to be the tipping point, and further iterations have diminishing value. So for data generation, we chose to use 2500 samples per pixel images as the ground truth. 
-
- 
-| Iterations | Render                    |
-| ---------- | ------------------------- |
-| 50         | <img src="./imgs/iter/50.png" width="150" height="150">   |
-| 250        | <img src="./imgs/iter/250.png" width="150" height="150">    |
-| 500        | <img src="./imgs/iter/500.png" width="150" height="150">    |
-| 1000       | <img src="./imgs/iter/1000.png" width="150" height="150">   |
-| 2000       | <img src="./imgs/iter/2000.png" width="150" height="150">   |
-| 5000       | <img src="./imgs/iter/5000.png" width="150" height="150">   |
+<div style="text-align:center"><img src="./imgs/depth.gif" width="400" height="400">
 
 ## Data Generation pipeline
 
@@ -68,8 +90,7 @@ To see the effect of iterations on render quality, we went with the same image w
 One of the core objectives of this project is to denoise temporal data. This means that the camera moves **smoothly** through the scene and for each frame, we generate the requisite inputs. 
 
 So the data generation, we had the camera move around the scene. For each scene, we generated an average of 300 frames of motion and 2 different motions of the camera (pan left-right and pan up-down). Then we generated 5 different versions of the 1 sample per pixel inputs. This was done to allow the network to identify the noise. The total amount of data generated was around 200 gigabytes, and only a subset could be uploaded.
-
-![](./imgs/motion.gif)
+<div style="text-align:center"><img src="./imgs/motion.gif" width="400" height="400">
 
 ### Components
 
@@ -145,6 +166,11 @@ The final loss is a weighted combination of these three losses as a final traini
 
 where ws, wg and wt are picked as 0.8,0.1,0.1 respectively. It was important to assign a higher weight to the loss functions of frames later in the sequence to amplify temporal gradients, and thus incentivize the temporal training of RNN blocks. A Gaussian curve to modulate ws/g/t: for a sequence of 7 images was used with values (0.011, 0.044, 0.135, 0.325, 0.607, 0.882, 1).
 
+### Scaling
+Loading all the data into the network quickly becomes a problem because of the size of the images. To allow for faster training, we had to split the images into smaller crops, i.e for each image we created a random crop of 255x255 and used that for that epoch. During inference, because the architecture is purely convolutional, we can infer on the entire resolution.
+ <div style="text-align:center"><img src="./imgs/crop.png" width="400" height="400">
+
+
 ## Realtime Architecture
 
 Once we have a trained network, we use the PyTorch to export the network into a c++ readable model using TorchScript. Once this is done, we can load the model and pass the network a tensor to infer on. Because of the way functions are implemented in the C++ Torch lib, the code wasn't able to be compiled with nvcc. So the inference and subsequent visualization was done using OpenCV imshow. This is definitely not the most efficient way to show the frames but was sufficient to get a usable framerate output.
@@ -186,15 +212,11 @@ The second approach was a much cleaner approach, using only float arrays and dir
 - Point CUDNN_LIBRARY_PATH to the library file (/absolute/path/to/CUDNN/lib/x64/cudnn.lib)
 - Generate the project
 
-## Results
 
-### Qualitative
-
-### Quantitative
 
 ## Bloopers
 
-The above result was obtained when the gradients of the network were exploding. This was resolved using batch normalization.
+The below result was obtained when the gradients of the network were exploding. This was resolved using batch normalization.
 
 ![](./imgs/bad_2.gif)
 
