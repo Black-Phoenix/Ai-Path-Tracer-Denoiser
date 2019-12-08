@@ -15,7 +15,6 @@ import torch, argparse, pdb
 from recurrent_autoencoder_model import *
 from dataloader import *
 from loss import *
-# from tensorboard import *
 import imageio
 
 root_dir = 'F:/training_data/'

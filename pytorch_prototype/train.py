@@ -15,20 +15,17 @@ import torch, argparse, pdb
 from recurrent_autoencoder_model import *
 from dataloader import *
 from loss import *
-# from tensorboard import *
+from tensorboard import *
 import matplotlib.pyplot as plt
 import torchvision
 from torch.optim.lr_scheduler import StepLR
-
 import timeit
-
 import warnings
+
 warnings.filterwarnings("ignore")
-
-root_dir = '/media/dewang/3574401F56DFCAB1/training_data_elephant/'
-# logger = Logger('./logs')
+root_dir = '/media/dewang/SanDisk/living_room/'
+logger = Logger('./logs')
 device =  torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
 
 model =  AutoEncoder(10).to(device)
 
@@ -39,20 +36,21 @@ def init_weights(m):
 
 
 model.apply(init_weights)
-# checkpoint = torch.load('models/autoencoder_model_sponza_27.pt')
-# model.load_state_dict(checkpoint['net'])
+
+
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 scheduler = StepLR(optimizer, step_size=25, gamma=0.2)
 
 overall_step = 0
-m = find_max(root_dir+'RGB',1,3,5)
+m = find_max(root_dir+'RGB',4,1,1)
 m = np.cumsum(m,axis=0)
-print(m)
+
 # preprocess(root_dir,root_dir+'RGB',root_dir+'Depth',root_dir+'Albedos',root_dir+'Normals',root_dir+'GroundTruth',m,512)
 dataset = AutoEncoderData(root_dir+'RGB',root_dir+'input',root_dir+'gt',(512,512),m, True, 256)
 train_loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
 total_step = len(train_loader)
 
+torch.cuda.empty_cache()
 for epoch in range(100):
     start = timeit.default_timer()
     total_loss = 0
@@ -86,21 +84,6 @@ for epoch in range(100):
             t_target = temporal_target[:,j,:,:,:]
             ls, lg, lt = loss_func(output, t_output, target, t_target)
             loss_final += (0.8+val_j[j])*ls + (0.1+val_j[j])*lg + (0.1+val_j[j])*lt
-            # if count < 10:
-            # # print(ls)
-            # # print(lg)
-            # # print(lt)
-            #     fig, ax = plt.subplots(4)
-            #     ax[0].imshow(output[0,:,:,:].permute(1,2,0).detach().cpu().numpy())
-            #     ax[0].set_title("Output Image")
-            #     ax[1].imshow(target[0,:,:,:].permute(1,2,0).detach().cpu().numpy())
-            #     ax[1].set_title("Ground Truth")
-            #     ax[2].imshow(input[0,j,:3,:,:].permute(1,2,0).detach().cpu().numpy())
-            #     ax[2].set_title("Input")
-            #     ax[3].imshow(input[0,j,7:,:,:].permute(1,2,0).detach().cpu().numpy())
-            #     ax[3].set_title("Albedo")
-            #     plt.show()
-            #     count+=1
             ls_final += ls
             lg_final += lg
             lt_final += lt
@@ -109,8 +92,8 @@ for epoch in range(100):
         if i%5 == 0:
              print ('Epoch [{}/{}], Step [{}/{}], Total Loss: {:.4f}, L1 Loss: {:.4f}, HFEN Loss: {:.4f}, Temporal Loss: {:.4f}'.format(epoch+1,
                                                                                                    200, i+1, total_step, loss_final.item(),ls_final.item(),lg_final.item(),lt_final.item()))
-        # for tag, value in info.items():
-        #     logger.scalar_summary(tag, value, overall_step+1)
+        for tag, value in info.items():
+            logger.scalar_summary(tag, value, overall_step+1)
         overall_step += 1
         optimizer.zero_grad()
         loss_final.backward()
@@ -124,6 +107,6 @@ for epoch in range(100):
     print("Time {}".format(stop-start))
     if epoch%3==0:
         checkpoint = {'net': model.state_dict()}
-        torch.save(checkpoint,'./models/autoencoder_model_all_{}.pt'.format(epoch))
+        torch.save(checkpoint,'models/model_{}.pt'.format(epoch))
 checkpoint = {'net': model.state_dict()}
-torch.save(checkpoint,'./models/autoencoder_model_all.pt')
+torch.save(checkpoint,'models/model_final.pt')

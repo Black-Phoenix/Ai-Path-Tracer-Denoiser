@@ -48,3 +48,4 @@ def preprocess(root_dir, scenes_dir,depth_dir, albedos_dir, normals_dir, gt_dir,
         #print(scenes_dir+'/'+images[index][:-4])
         np.save(root_dir+'/'+'input/'+images[index][:-4],inputs)
         np.save(root_dir+'/'+'gt/'+images[index][:-4],outputs)
+        print("{} saved!".format(root_dir+'/'+'input/'+images[index][:-4]))

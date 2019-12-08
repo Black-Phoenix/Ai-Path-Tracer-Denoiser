@@ -63,26 +63,3 @@ class AutoEncoderData(Dataset):
 
     def __len__(self):
         return len(self.images)
-
-if __name__ == '__main__':
-    device =  torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    root_dir = '../train_data/'
-
-    m = find_max('../train_data/RGB',4,1,1)
-    m = np.cumsum(m,axis=0)
-    print(m)
-    # preprocess(root_dir,root_dir+'RGB',root_dir+'Depth',root_dir+'Albedos',root_dir+'Normals',root_dir+'GroundTruth',m,512)
-    data_num = 170
-    dataset = AutoEncoderData(root_dir+'RGB',root_dir+'input',root_dir+'gt',(512,512),m)
-    data = dataset[data_num]
-    input = data['image'].float().to(device)
-    label = data['output'].float().to(device)
-    for j in range(7):
-        fig, ax = plt.subplots(3)
-        ax[0].imshow(input[j,:3,:,:].permute(1,2,0).detach().cpu().numpy())
-        ax[0].set_title("Input")
-        ax[1].imshow(input[j,3:6,:,:].permute(1,2,0).detach().cpu().numpy())
-        ax[1].set_title("Normal")
-        ax[2].imshow(input[j,6:7,:,:].permute(1,2,0).detach().cpu().numpy()[:,:,0])
-        ax[2].set_title("Depth")
-        plt.show()
