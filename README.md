@@ -53,7 +53,7 @@ To show the effect of depth on the render, We decided to render a reflective int
 
 | Depth | Render                   | Comment                                                      |
 | ----- | ------------------------ | ------------------------------------------------------------ |
-| 1     | ![](./imgs/depth/1.png){:height="20%" width="20%"} | For this render, we see no reflections at all. The no path tracing case. AKA albedos |
+| 1     | <img src="./imgs/depth/3.png" width="100" height="100"> | For this render, we see no reflections at all. The no path tracing case. AKA albedos |
 | 2     | ![](./imgs/depth/2.png)  |
 | 3     | ![](./imgs/depth/3.png)  |
 | 4     | ![](./imgs/depth/4.png)  |
