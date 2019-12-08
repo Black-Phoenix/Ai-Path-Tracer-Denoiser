@@ -20,7 +20,7 @@ The Path tracer was implemented path tracer written entirely in C++ and CUDA acc
 Below is an overview of the pipeline. The black line is the path followed during training and the green line is used during inference.
 
 
-![](./imgs/overview.png)
+![](./imgs/overview.PNG)
 ## Path Tracing Overview
 
 The idea of a path tracer is to simulate the effect light and materials have on other objects in the scene. This path tracer is both the first and last step of this project; data generation and inference are done using similar code. More information can be found on [this repo](https://github.com/Black-Phoenix/Project3-CUDA-Path-Tracer), which is dedicated to the path tracer itself.
