@@ -84,8 +84,81 @@ This project involved sommthing over temporal data, so the data generation. avg 
 
 
 ## Denoising Network 
+
 ### Architecture
+
+![](./imgs/architecture.png)
+
+The architecture used here is a Recurrent Autoencoder with Skip connections, TL;DR it is recurrent because data is temporal, autoencoder because we need to reconstruct images from some internal representation and skip connections help the network go deeper and fix the vanishing/exploding gradient problem.
+
+#### Denoising Autoencoder with skip connections
+
+The network architecture includes distinct encoder and a decoder stages that operate on decreasing and increasing spatial resolutions, respectively. Autoencoders are networks that learn to reconstruct their inputs from some internal representation, and denoising autoencoders also learn to remove noise from the inputs. The term denoising autoencoders is used because the network constructs from noisy inputs. Because the network learns a mapping from inputs to outputs, it has a desirable property that any number of auxiliary inputs can be provided in addition to the color data. The optimization during training considers all these inputs and automatically finds the best way to use them to disambiguate the color data.
+
+#### Recurrent Denoising Autoencoder for Temporal Denoising 
+
+Recurrent Neural networks are used for processing arbitrarily long input sequences. An RNN has feedback loops that connect the output of the previous hidden states to the current ones, thus retaining important information between input. This makes it a good fit to our application for two reasons:
+* In order to denoise a continuous stream of images, we need to achieve
+  temporally stable results.
+
+* Our inputs are very sparse, the recurrent connections also gather more information about the illumination over time.
+
+In order to retain temporal features at multiple scales, fully convolutional blocks are used after every encoding stage. It is important for the network to remain fully convolutional because we can train on smaller crops and then later apply it to sequences of arbitrary resolution and length. 
+
+Since the signal is sparser in the encoder than the decoder it is efficient to use recurrence only in the encoder and not the decoder. Each recurrent block consists of three convolution layers with a 3 × 3-pixel spatial support. One layer processes the input features from the previous layer of the encoder. It then concatenates the results with the features from the previous hidden state, and passes it through two remaining convolution layers. The result becomes
+both the new hidden state and the output of the recurrent block. This provides a sufficient temporal receptive field and, together with the multi-scale cascade of such recurrent blocks, allows to efficiently track and retain image features temporally at multiple scales. The
+convolution layers in a recurrent block operate on the same input resolution and the same number of features as the encoding stage it is attached to. Formally, the output and the hidden state can be represented using a recurrent equation:
+
+
+![](./imgs/equation.png)
+
 #### Loss
+
+A loss function defines how the error between network outputs and training targets is computed during training. The network trained here contains three loss components:
+
+##### Spatial L1 loss
+
+The most commonly used loss function in image restoration is mean square error loss. However it has been observed that using a L1 loss instead of L2 can reduce the splotchy artifacts from reconstructed images. 
+
+![](./imgs/l1_loss.png)
+
+![](./imgs/l1.png)
+
+
+
+##### Gradient Domain L1 Loss
+
+The L1 spatial loss provides a good overall image metric that is tolerant to outliers. In order to further penalize the difference in finer details like edges, we also use gradient domain L1 loss
+
+
+
+![](./imgs/hfen.png)
+
+where each gradient is computed using a High Frequency Error Norm (HFEN), an image comparison metric. The metric uses a Laplacian of Gaussian kernel for edge-detection. The Laplacian works to detect edges, but is sensitive to noise, so the image is pre-smoothed with a Gaussian filter first to make edge-detection work better.
+
+
+
+![](./imgs/hfen_pic.png)
+
+
+
+##### Temporal Loss
+
+These losses minimize the error of each image in isolation. However they do not penalize temporal incoherence and neither do they encourage the optimizer to train the recurrent connections to pass more data across frames. So along with the other two losses, a temporal L1 loss is used.
+
+![](./imgs/temporal.png)
+
+where the temporal derivative for an ith pixel image is computed using finite  differencing in time between the ith pixels of the current and the previous image in the temporal training sequence.
+
+
+
+The final loss is a weighted combination of these three losses as a final training loss.
+
+![](./imgs/weighted_avg.png)
+
+where ws, wg and wt are picked as 0.8,0.1,0.1 respectively. It important to assign higher weight to the loss functions of frames later in the sequence to amplify temporal gradients, and thus incentivize the temporal training of RNN blocks. A Gaussian curve to modulate ws/g/t: for a sequence of 7 images was used with values (0.011, 0.044, 0.135, 0.325, 0.607, 0.882, 1).
+
+
 
 ## Building the project
 
