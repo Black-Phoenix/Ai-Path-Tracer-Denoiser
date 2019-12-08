@@ -28,6 +28,10 @@ Below is an overview of the pipeline. The black line is the path followed during
 
   ![](./imgs/results/refl.gif)
 
+* Living room
+
+  ![](./imgs/results/livingroom.gif)
+
 * Classroom
 
   ![](./imgs/results/classroom.gif)
@@ -42,15 +46,17 @@ Below is an overview of the pipeline. The black line is the path followed during
 
 ### Quantitative
 
-* Time to Train 
+* Time to train the network
+
+  * 22x reduction in time
 
   ![](./imgs/results/cpuvgpu.png)
 
-* Avg Inference time for different approaches
+* Average inference time for different approaches 
+
+  * 750x reduction in time
 
   ![](./imgs/results/infer.png)
-
-* Plot for a single fps
 
 
 ## Path Tracing Overview
@@ -82,7 +88,6 @@ The Cornell box is a simple stage, consisting of 5 diffusive walls (1 red, 1 gre
 
 To see the effect of iterations on render quality, we went with the same image we used above (with a depth of 8) to test the effect of iteration on render for a semi-complex scene. From visual inspection, 2000 seems to be the tipping point, and further iterations have diminishing value. So for data generation, we chose to use 2500 samples per pixel images as the ground truth. 
 <p align="center"><img src="./imgs/depth.gif" width="400" height="400"></p>
-
 ## Data Generation pipeline
 
 ### Movements
@@ -91,13 +96,11 @@ One of the core objectives of this project is to denoise temporal data. This mea
 
 So the data generation, we had the camera move around the scene. For each scene, we generated an average of 300 frames of motion and 2 different motions of the camera (pan left-right and pan up-down). Then we generated 5 different versions of the 1 sample per pixel inputs. This was done to allow the network to identify the noise. The total amount of data generated was around 200 gigabytes, and only a subset could be uploaded.
 <p align="center"><img src="./imgs/motion.gif" width="400" height="400"></p>
-
 ### Components
 
  To generate training data, we used the path tracer to output the albedos, depth maps, 1 sample per pixel and the normals for each surface for each frame in a movement. This results in a total of 10 channels (It is possible to store the normals as only 2 channels but was not done for this project, because a png has either 3 or 4 channels per image). The images were written to the disk using STB write png. Because all the values are float values, for data storage, we scaled all the outputs to make the range between 0 and 255. While training the network, the data is unscaled. This allowed for saving of space (not required to write cv float arrays to disk) while having a discretization effect on the data. 
 
 <p align="center"><img src="./imgs/data_gen.gif"></p>
-
 ### Python processing
 
 After the data was generated in C++ and written to images, we used Numpy to perform the final stage of data processing, which involved collecting the 4 separate images and storing it into a single Numpy matrix with 10 channels. This matrix was then cropped to the requisite size and written to disk as Numpy files. This allowed them to be read using the PyTorch data loader, making it easier to train the network.
@@ -107,7 +110,6 @@ After the data was generated in C++ and written to images, we used Numpy to perf
 ### Architecture
 
 <p align="center"><img src="./imgs/architecture.png"></p>
-
 The architecture used here is a Recurrent Autoencoder with Skip connections, TL;DR it is recurrent because data is temporal, autoencoder because we need to reconstruct images from some internal representation and skip connections help the network go deeper and fix the vanishing/exploding gradient problem.
 
 #### Denoising Autoencoder with skip connections
@@ -127,7 +129,6 @@ Since the signal is sparser in the encoder than the decoder it is efficient to u
 
 
 <p align="center"><img src="./imgs/equation.png" height="75"></p>
-
 #### Loss
 
 A loss function defines how the error between network outputs and training targets is computed during training. The network trained here contains three-loss components:
@@ -137,9 +138,7 @@ A loss function defines how the error between network outputs and training targe
 The most commonly used loss function in image restoration is mean square error loss. However, it has been observed that using an L1 loss instead of L2 can reduce the splotchy artefacts from reconstructed images. 
 
 <p align="center"><img src="./imgs/l1_loss.png" height="75"></p>
-
 <p align="center"><img src="./imgs/l1.png"></p>
-
 ##### Gradient Domain L1 Loss
 
 The L1 spatial loss provides a good overall image metric that is tolerant of outliers. In order to further penalize the difference in finer details like edges, we also use gradient-domain L1 loss
@@ -147,29 +146,24 @@ The L1 spatial loss provides a good overall image metric that is tolerant of out
 
 <p align="center"><img src="./imgs/hfen.png" height="75"></p>
 
-
 where each gradient is computed using a High-Frequency Error Norm (HFEN), an image comparison metric. The metric uses a Laplacian of Gaussian kernel for edge-detection. The Laplacian works to detect edges, but is sensitive to noise, so the image is pre-smoothed with a Gaussian filter first to make edge-detection work better.
 
 <p align="center"><img src="./imgs/hfen_pic.png"></p>
-
 ##### Temporal Loss
 
 These losses minimize the error of each image in isolation. However, they do not penalize temporal incoherence and neither do they encourage the optimizer to train the recurrent connections to pass more data across frames. So along with the other two losses, a temporal L1 loss is used.
 
  <p align="center"><img src="./imgs/temporal.png"  height="75"/></p>
-
 where the temporal derivative for an ith pixel image is computed using finite differencing in time between the ith pixels of the current and the previous image in the temporal training sequence.
 
 The final loss is a weighted combination of these three losses as a final training loss.
 
  <p align="center"><img src="./imgs/weighted_avg.png" height="75"/></p>
-
 where ws, wg and wt are picked as 0.8,0.1,0.1 respectively. It was important to assign a higher weight to the loss functions of frames later in the sequence to amplify temporal gradients, and thus incentivize the temporal training of RNN blocks. A Gaussian curve to modulate ws/g/t: for a sequence of 7 images was used with values (0.011, 0.044, 0.135, 0.325, 0.607, 0.882, 1).
 
 ### Scaling
 Loading all the data into the network quickly becomes a problem because of the size of the images. To allow for faster training, we had to split the images into smaller crops, i.e for each image we created a random crop of 255x255 and used that for that epoch. During inference, because the architecture is purely convolutional, we can infer on the entire resolution.
  <p align="center"><img src="./imgs/crop.png" width="400" height="400"></p>
-
 
 ## Realtime Architecture
 
@@ -188,7 +182,7 @@ The second approach was a much cleaner approach, using only float arrays and dir
 	* CUDA 10+
   - [tinyobjloader](https://github.com/syoyo/tinyobjloader)
   - [Torch C++](https://pytorch.org/)
-  - [CuDNN](https://developer.nvidia.com/cudnn)
+  - [cuDNN](https://developer.nvidia.com/cudnn)
   - [OpenCV](https://opencv.org/)
   - [STB](https://github.com/nothings/stb)
 
@@ -203,16 +197,22 @@ The second approach was a much cleaner approach, using only float arrays and dir
 ### Building Torch Using CMake (With OpenCV)
 
 - Download [Torch]( https://pytorch.org/tutorials/advanced/cpp_export.html ) From the official website (C++ build with or without CUDA) and extract it into the project
-- Download CUDNN (Required for Torch) and extract into the project
+- Download cuDNN (Required for Torch) and extract into the project
 - First, add the necessary lines from [this post]( https://pytorch.org/tutorials/advanced/cpp_export.html ) to your CMakeLists.txt file (Already one for this project)
 - In the build directory, run CMake-gui .. and point cmake towards the OpenCV build directory (if not already in the path)
 - Then close cmake-gui (This is the order because OpenCV is found before Torch) and run the following command (Point it towards the libtorch relative to the build directory)
 - cmake -DCMAKE_PREFIX_PATH=$PWD/../../libtorch ..
-- Run cmake-gui .. again and now point CUDNN_INCLUDE_PATH towards the include folder inside the CUDNN folder.
-- Point CUDNN_LIBRARY_PATH to the library file (/absolute/path/to/CUDNN/lib/x64/cudnn.lib)
+- Run cmake-gui .. again and now point CUDNN_INCLUDE_PATH towards the include folder inside the cuDNN folder.
+- Point CUDNN_LIBRARY_PATH to the library file (/absolute/path/to/cuDNN /lib/x64/cudnn.lib)
 - Generate the project
 
+## Code Structure
 
+* Data Generation - On a separate branch ([link]())
+  * Build using only opencv (similar to the steps above)
+* Training - In Training
+  * 
+* C++ - In Inference
 
 ## Bloopers
 
@@ -220,9 +220,10 @@ The below result was obtained when the gradients of the network were exploding. 
 
 ![](./imgs/bad_2.gif)
 
-## Useful links
+## Useful links & Credits
 
 - [3D obj files with normals](https://casual-effects.com/data/)
 - [Fresnel's law](https://blog.demofox.org/2017/01/09/raytracing-reflection-refraction-fresnel-total-internal-reflection-and-beers-law/)
 - [Easier 3D obj files](https://graphics.cmlab.csie.ntu.edu.tw/~robin/courses/cg04/model/index.html)
 - [C++ Torch API](https://pytorch.org/cppdocs/)
+- [cuDNN](https://developer.nvidia.com/cudnn)
