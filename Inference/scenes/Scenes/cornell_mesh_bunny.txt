@@ -1,0 +1,87 @@
+// Emissive material (light)
+MATERIAL 0
+RGB         1 1 1
+SPECEX      0
+SPECRGB     0 0 0
+REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   5
+
+// Transparent Red
+MATERIAL 1
+RGB         .88 .38 .38
+SPECEX      0
+SPECRGB     0 0 0
+REFL        0
+REFR        1
+REFRIOR     1.83
+EMITTANCE   0
+
+// Diffuse Green
+MATERIAL 2
+RGB         .35 .85 .35
+SPECEX      0
+SPECRGB     0 0 0
+REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   0
+
+// Transparent Gray
+MATERIAL 3
+RGB         .35 .35 .35
+SPECEX      0
+SPECRGB     .35 .35 .35
+REFL        0
+REFR        1
+REFRIOR     0.55
+EMITTANCE   0
+
+// Specular white
+MATERIAL 4
+RGB         .98 .98 .98
+SPECEX      0
+SPECRGB     .98 .98 .98
+REFL        1
+REFR        0
+REFRIOR     0
+EMITTANCE   0
+
+// Camera
+CAMERA
+RES         800 800
+FOVY        45
+ITERATIONS  5000
+DEPTH       8
+FILE        cornell
+EYE         0.0 5 10.5
+LOOKAT      0 5 0
+UP          0 1 0
+
+
+// Ceiling light
+OBJECT 0
+cube
+material 0
+TRANS       0 10 0
+ROTAT       0 0 0
+SCALE       10 .3 10
+VEL 0 0 0
+
+// Floor
+OBJECT 1
+cube
+material 2
+TRANS       0 -0.3 0
+ROTAT       0 0 0
+SCALE       10 .01 10
+
+
+// Mesh
+MESH 0
+PATH ../scenes/Models/bunny.obj
+material 3
+TRANS		0 0 2
+ROTAT		0 0 0
+SCALE		1 1 1

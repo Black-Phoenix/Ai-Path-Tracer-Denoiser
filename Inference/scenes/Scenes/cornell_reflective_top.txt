@@ -1,0 +1,230 @@
+// Emissive material (light)
+MATERIAL 0
+RGB         1 1 1
+SPECEX      0
+SPECRGB     0 0 0
+REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   2
+
+// Diffuse white
+MATERIAL 1
+RGB         .98 .98 .98
+SPECEX      0
+SPECRGB     0 0 0
+REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   0
+
+// Ref red
+MATERIAL 2
+RGB         .85 .35 .35
+SPECEX      0
+SPECRGB     .85 .35 .35
+REFL        1
+REFR        0
+REFRIOR     0
+EMITTANCE   0
+
+// Ref green
+MATERIAL 3
+RGB         .35 .85 .35
+SPECEX      0
+SPECRGB     .35 .85 .35
+REFL        1
+REFR        0
+REFRIOR     0
+EMITTANCE   0
+
+// Reflective Orb (white)
+MATERIAL 4
+RGB         .98 .98 .98
+SPECEX      0
+SPECRGB     .98 .98 .98
+REFL        1
+REFR        0
+REFRIOR     0
+EMITTANCE   0
+
+// Diffused Orb (Blue)
+MATERIAL 5
+RGB         .38 .38 .98
+SPECEX      0
+SPECRGB     .38 .38 .98
+REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   0
+
+// Emissive material (Blue light)
+MATERIAL 6
+RGB         0.5 0.5 0.5
+SPECEX      0
+SPECRGB     0 0 0
+REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   2
+
+// Transparent material
+MATERIAL 7
+RGB         0.38 0.88 0.35
+SPECEX      0
+SPECRGB     0.38 0.88 0.35
+REFL        0
+REFR        1
+REFRIOR     1.2
+EMITTANCE   0
+
+
+// Camera
+CAMERA
+RES         1200 1200
+FOVY        45
+ITERATIONS  5000
+DEPTH       10
+FILE        cornell
+EYE         0.0 5 10.5
+LOOKAT      0 5 0
+UP          0 1 0
+
+
+// Ceiling light
+OBJECT 0
+cube
+material 0
+TRANS       0 9.5 0
+ROTAT       0 0 0
+SCALE       5 .1 5
+VEL 0 0 0
+
+// Floor
+OBJECT 1
+cube
+material 1
+TRANS       0 0 0
+ROTAT       0 0 0
+SCALE       10 .01 10
+
+// Back wall
+OBJECT 2
+cube
+material 1
+TRANS       0 5 -5
+ROTAT       0 90 0
+SCALE       .01 10 10
+VEL 0 0 0
+
+// Left wall
+OBJECT 3
+cube
+material 2
+TRANS       -5 5 0
+ROTAT       0 0 0
+SCALE       .01 10 10
+VEL 0 0 0
+
+// Right wall
+OBJECT 4
+cube
+material 3
+TRANS       5 5 -0
+ROTAT       0 0 0
+SCALE       .01 10 10
+VEL 0 0 0
+
+// Row 1
+OBJECT 5
+sphere
+material 3
+TRANS       -3.0 6.5 -4.0
+ROTAT       0 0 0
+SCALE       2 2 2
+VEL 0 0 0
+
+OBJECT 6
+sphere
+material 4
+TRANS       -1.0 6.2 -4.0
+ROTAT       0 0 0
+SCALE       2 2 2
+VEL 0 0 0
+
+OBJECT 7
+sphere
+material 4
+TRANS       1.0 6 -4.0
+ROTAT       0 0 0
+SCALE       2 2 2
+VEL 0 0 0
+
+OBJECT 8
+sphere
+material 2
+TRANS       3.0 5.7 -4.0
+ROTAT       0 0 0
+SCALE       2 2 2
+VEL 0 0 0
+
+// Row 2
+OBJECT 9
+sphere
+material 7
+TRANS       -2.0 5 -2.0
+ROTAT       0 0 0
+SCALE       2 2 2
+VEL 0 0 0
+
+OBJECT 10
+sphere
+material 6
+TRANS       0 4.7 -2.0
+ROTAT       0 0 0
+SCALE       2 2 2
+VEL 0 0 0
+
+OBJECT 11
+sphere
+material 7
+TRANS       2.0 4.5 -2.0
+ROTAT       0 0 0
+SCALE       2 2 2
+VEL 0 0 0
+
+// Row 3
+OBJECT 12
+sphere
+material 4
+TRANS       -1 3.5 0
+ROTAT       0 0 0
+SCALE       2 2 2
+VEL 0 0 0
+
+// Sphere 7
+OBJECT 13
+sphere
+material 4
+TRANS       1.0 3.2 0
+ROTAT       0 0 0
+SCALE       2 2 2
+VEL 0 0 0
+
+// Diffused roof
+OBJECT 14
+cube
+material 1
+TRANS       0 10 0
+ROTAT       0 0 90
+SCALE       .01 10 10
+VEL 0 0 0
+
+// Row 4 (Top mesh)
+MESH 0
+PATH ../scenes/Models/small_hexagonal_hexecontahedron.obj
+material 5
+TRANS       0 2.5 2
+ROTAT       0 0 0
+SCALE       0.035 .035 .035
+VEL 0 0 0
