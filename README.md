@@ -53,10 +53,10 @@ To show the effect of depth on the render, We decided to render a reflective int
 
 | Depth | Render                   | Comment                                                      |
 | ----- | ------------------------ | ------------------------------------------------------------ |
-| 1     | ![](./imgs/depth/1.png)  | For this render, we see no reflections at all. The no path tracing case. AKA albedos |
-| 2     | ![](./imgs/depth/2.png)  | We start to see some reflections (only the simplest ones).   |
-| 3     | ![](./imgs/depth/3.png)  | We can see more reflections on the reflection of the orbs in the walls. |
-| 4     | ![](./imgs/depth/4.png)  | We now have better refractions.                              |
+| 1     | ![](./imgs/depth/1.png){:height="20%" width="20%"} | For this render, we see no reflections at all. The no path tracing case. AKA albedos |
+| 2     | ![](./imgs/depth/2.png)  |
+| 3     | ![](./imgs/depth/3.png)  |
+| 4     | ![](./imgs/depth/4.png)  |
 | 5     | ![](./imgs/depth/5.png)  | The reflections of the orbs have some transparency.          |
 | 6     | ![6](./imgs/depth/6.png) | The reflection of the transparent orbs isn't transparent.    |
 | 7     | ![7](./imgs/depth/7.png) | The difference is subtle, but is shows up in the 3rd order reflections |
