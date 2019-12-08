@@ -111,8 +111,8 @@ int Scene::loadCamera() {
         utilityCore::safeGetline(fp_in, line);
         vector<string> tokens = utilityCore::tokenizeString(line);
         if (strcmp(tokens[0].c_str(), "RES") == 0) {
-            camera.resolution.x = atoi(tokens[1].c_str());
-            camera.resolution.y = atoi(tokens[2].c_str());
+			camera.resolution.x = 512; //atoi(tokens[1].c_str());
+			camera.resolution.y = 512;// atoi(tokens[2].c_str());
         } else if (strcmp(tokens[0].c_str(), "FOVY") == 0) {
             fovy = atof(tokens[1].c_str());
         } else if (strcmp(tokens[0].c_str(), "ITERATIONS") == 0) {

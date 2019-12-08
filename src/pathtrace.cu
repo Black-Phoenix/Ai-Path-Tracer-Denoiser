@@ -16,10 +16,11 @@
 #include "intersections.h"
 #include "interactions.h"
 #include <assert.h>
+#include <chrono>
 
 // Optimizations
-#define STREAM_COMPACTION false
-#define SORT_MATERIAL false
+#define STREAM_COMPACTION true
+#define SORT_MATERIAL true
 #define CACHE_BOUNCE false
 #define RAY_CULLING true
 // Effects
@@ -52,7 +53,7 @@ void checkCUDAErrorFn(const char *msg, const char *file, int line) {
 
 __host__ __device__
 thrust::default_random_engine makeSeededRandomEngine(int iter, int index, int depth) {
-	int h = utilhash((1 << 31) | (depth << 22) | iter) ^ utilhash(index);
+	int h = utilhash((1 << 31) | (depth << 22) | iter) ^ utilhash(index) + 14;
 	return thrust::default_random_engine(h);
 }
 

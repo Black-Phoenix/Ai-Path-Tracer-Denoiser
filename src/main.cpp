@@ -24,7 +24,7 @@ int movement_sign = 1;
 float zoom, theta, phi;
 glm::vec3 cameraPosition;
 glm::vec3 ogLookAt; // for recentering the camera
-float x_vel = 0, y_vel = 10.0;
+float x_vel = 0.0, y_vel = -10.0;
 Scene *scene;
 RenderState *renderState;
 int iteration;
@@ -33,6 +33,7 @@ int width;
 int height;
 #define SAVE_DENOISE true
 #define GROUND_TRUTH false
+#define SHOW_IMAGE false
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
@@ -107,16 +108,18 @@ void saveImage() {
 	last_element = last_element.substr(6, last_element.length());
 	string zero_padded_iter = std::string(6 - to_string(frame_number).length(), '0') + to_string(frame_number);
 	string rgb_path;
+	string movement_number = "3";
+	string noise_number = "5";
 	if (GROUND_TRUTH)
-		rgb_path = "./Training_data/GroundTruth/" + last_element + "_1_" + zero_padded_iter;
+		rgb_path = "./Training_data/GroundTruth/" + last_element + "_" + movement_number + "_" +  noise_number + "_" + zero_padded_iter;
 	else 
-		rgb_path = "./Training_data/RGB/" + last_element + "_1_" + zero_padded_iter;
+		rgb_path = "./Training_data/RGB/" + last_element + "_" + movement_number + "_" + noise_number + "_" + zero_padded_iter;
 
 	img_rgb.savePNG_scaled(rgb_path);
 	if (samples == 1) {
-			string depth_path = "./Training_data/Depth/" + last_element + "_1_" + zero_padded_iter;
-			string normal_path = "./Training_data/Normals/" + last_element + "_1_" + zero_padded_iter;
-			string albedo_path = "./Training_data/Albedos/" + last_element + "_1_" + zero_padded_iter;
+			string depth_path = "./Training_data/Depth/" + last_element + "_" + movement_number + "_" + noise_number + "_" + zero_padded_iter;
+			string normal_path = "./Training_data/Normals/" + last_element + "_" + movement_number + "_" + noise_number + "_" + zero_padded_iter;
+			string albedo_path = "./Training_data/Albedos/" + last_element + "_" + movement_number + "_" + noise_number + "_" + zero_padded_iter;
 			img_normal.savePNG(normal_path);
 			img_albedo.savePNG(albedo_path);
 			img_depth.savePNG(depth_path);
@@ -171,11 +174,13 @@ void viewDenoiseRaw(int iter) {
 	//string albedo_path = "../Training_data/Scene_1/" + to_string(iter) + "albedo" + string(".png");
 	//cv::imwrite(albedo_path.c_str(), img_albedo);
 	//string rgb_path = "../Training_data/Scene_1/" + to_string(iter) + "rgb" + string(".png");
-	//cv::imwrite(rgb_path.c_str(), img_rgb);
+	cv::imshow("Test", img_rgb);
 	//cv::waitKey(0);
 }
 
 int runCuda() {
+
+
     if (camchanged) {
 		iteration = 0;
 		Camera &cam = renderState->camera;
@@ -183,19 +188,18 @@ int runCuda() {
 		cameraPosition.x = zoom * sin(phi) * sin(theta);
 		cameraPosition.y = zoom * cos(theta);
 		cameraPosition.z = zoom * cos(phi) * sin(theta);
-		cout << cameraPosition.x << endl;
-		if (y_vel > 0) {
-			if (cameraPosition.y < -5 && movement_sign < 0)
-				movement_sign = 1;
-			else if (cameraPosition.y > 5 && movement_sign > 0)
-				movement_sign = -1;
-		}
-		else if (x_vel > 0) {
-			if (cameraPosition.x < -5 && movement_sign > 0)
-				movement_sign = -1;
-			else if (cameraPosition.x > 5 && movement_sign < 0)
-				movement_sign = 1;
-		}
+		//if (y_vel > 0) {
+		//	if (cameraPosition.y < -5 && movement_sign < 0)
+		//		movement_sign = 1;
+		//	else if (cameraPosition.y > 5 && movement_sign > 0)
+		//		movement_sign = -1;
+		//}
+		//else if (x_vel > 0) {
+		//	if (cameraPosition.x < -5 && movement_sign > 0)
+		//		movement_sign = -1;
+		//	else if (cameraPosition.x > 5 && movement_sign < 0)
+		//		movement_sign = 1;
+		//}
 		cam.view = -glm::normalize(cameraPosition);
 		glm::vec3 v = cam.view;
 		glm::vec3 u = glm::vec3(0, 1, 0);//glm::normalize(cam.up);
@@ -207,12 +211,11 @@ int runCuda() {
 		cam.position = cameraPosition;
 		camchanged = false;
      }
-	if (frame_number > 162) {
+	if (frame_number == 54) {
 		exit(0);
 	}
     // Map OpenGL buffer object for writing from CUDA on a single GPU
     // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
-
     if (iteration == 0) {
         pathtraceFree();
         pathtraceInit(scene);
@@ -232,7 +235,9 @@ int runCuda() {
 	// Moving camera
 	if (!GROUND_TRUTH || (GROUND_TRUTH && iteration >= renderState->iterations)) {
 		if (SAVE_DENOISE)
-			saveImage(); 
+			saveImage();
+		else if(SHOW_IMAGE)
+			viewDenoiseRaw(iteration);
 		phi -= (movement_sign * x_vel) / width;
 		theta -= (movement_sign * y_vel) / height;
 		theta = std::fmax(0.001f, std::fmin(theta, PI));

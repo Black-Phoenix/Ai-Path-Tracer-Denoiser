@@ -6,7 +6,7 @@ SPECRGB     0 0 0
 REFL        0
 REFR        0
 REFRIOR     0
-EMITTANCE   10
+EMITTANCE   5
 
 // Diffuse Gray
 MATERIAL 1
@@ -60,9 +60,9 @@ EMITTANCE   0
 
 // Camera
 CAMERA
-RES         800 800
+RES         512 512
 FOVY        45
-ITERATIONS  5000
+ITERATIONS  2500
 DEPTH       8
 FILE        cornell
 EYE         0.0 5 10.5
@@ -90,7 +90,7 @@ SCALE       10 .01 10
 
 // Mesh
 MESH 0
-PATH ../scenes/Models/elephav.obj
+PATH C:/Users/Raven/Documents/565_Assignments/Final_Project/Data_gen/scenes/Models/elephav.obj
 material 5
 TRANS		0 0 -2
 ROTAT		0 0 0

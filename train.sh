@@ -2,7 +2,7 @@
 function pause(){
    read -p "$*"
 }
-target="scenes/scenes_created/$1"
+target="scenes/scenes_created_active/$1"
 train="Training_data/$1"
 let count=0
 for f in "$target"/*
