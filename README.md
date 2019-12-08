@@ -126,7 +126,7 @@ In order to retain temporal features at multiple scales, fully convolutional blo
 Since the signal is sparser in the encoder than the decoder it is efficient to use recurrence only in the encoder and not the decoder. Each recurrent block consists of three convolution layers with a 3 × 3-pixel spatial support. One layer processes the input features from the previous layer of the encoder. It then concatenates the results with the features from the previous hidden state and passes it through two remaining convolution layers. The result becomes both the new hidden state and the output of the recurrent block. This provides a sufficient temporal receptive field and, together with the multi-scale cascade of such recurrent blocks, allows to efficiently track and retain image features temporally at multiple scales. The convolution layers in a recurrent block operate on the same input resolution and the same number of features as the encoding stage it is attached to. Formally, the output and the hidden state can be represented using a recurrent equation:
 
 
-<p align="center"><img src="./imgs/equation.png"></p>
+<p align="center"><img src="./imgs/equation.png" height="75"></p>
 
 #### Loss
 
@@ -136,7 +136,7 @@ A loss function defines how the error between network outputs and training targe
 
 The most commonly used loss function in image restoration is mean square error loss. However, it has been observed that using an L1 loss instead of L2 can reduce the splotchy artefacts from reconstructed images. 
 
-<p align="center"><img src="./imgs/l1_loss.png"></p>
+<p align="center"><img src="./imgs/l1_loss.png" height="75"></p>
 
 <p align="center"><img src="./imgs/l1.png"></p>
 
@@ -145,7 +145,7 @@ The most commonly used loss function in image restoration is mean square error l
 The L1 spatial loss provides a good overall image metric that is tolerant of outliers. In order to further penalize the difference in finer details like edges, we also use gradient-domain L1 loss
 
 
-<p align="center"><img src="./imgs/hfen.png"></p>
+<p align="center"><img src="./imgs/hfen.png" height="75"></p>
 
 
 where each gradient is computed using a High-Frequency Error Norm (HFEN), an image comparison metric. The metric uses a Laplacian of Gaussian kernel for edge-detection. The Laplacian works to detect edges, but is sensitive to noise, so the image is pre-smoothed with a Gaussian filter first to make edge-detection work better.
@@ -156,13 +156,13 @@ where each gradient is computed using a High-Frequency Error Norm (HFEN), an ima
 
 These losses minimize the error of each image in isolation. However, they do not penalize temporal incoherence and neither do they encourage the optimizer to train the recurrent connections to pass more data across frames. So along with the other two losses, a temporal L1 loss is used.
 
- <p align="center"><img src="./imgs/temporal.png"/></p>
+ <p align="center"><img src="./imgs/temporal.png"  height="75"/></p>
 
 where the temporal derivative for an ith pixel image is computed using finite differencing in time between the ith pixels of the current and the previous image in the temporal training sequence.
 
 The final loss is a weighted combination of these three losses as a final training loss.
 
- <p align="center"><img src="./imgs/weighted_avg.png"/></p>
+ <p align="center"><img src="./imgs/weighted_avg.png" height="75"/></p>
 
 where ws, wg and wt are picked as 0.8,0.1,0.1 respectively. It was important to assign a higher weight to the loss functions of frames later in the sequence to amplify temporal gradients, and thus incentivize the temporal training of RNN blocks. A Gaussian curve to modulate ws/g/t: for a sequence of 7 images was used with values (0.011, 0.044, 0.135, 0.325, 0.607, 0.882, 1).
 
