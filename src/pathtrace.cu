@@ -48,7 +48,7 @@ void checkCUDAErrorFn(const char *msg, const char *file, int line) {
 	exit(EXIT_FAILURE);
 #endif
 }
-
+// Modify the hash function to create different noise 
 __host__ __device__
 thrust::default_random_engine makeSeededRandomEngine(int iter, int index, int depth) {
 	int h = utilhash((1 << 31) | (depth << 22) | iter) ^ utilhash(index);
@@ -314,21 +314,6 @@ glm::mat4 buildTransformationMatrix(glm::vec3 translation, glm::vec3 rotation, g
 	glm::mat4 scaleMat = glm::scale(glm::mat4(), scale);
 	return translationMat * rotationMat * scaleMat;
 }
-//__global__ void test_copy_kernel(at::Tensor torch_data, glm::vec3 * dev_rgb, glm::vec3 * dev_normal, glm::vec3 * dev_albedo, float * dev_depth, int width) {
-//	const int i = (blockIdx.x * blockDim.x) + threadIdx.x;
-//	const int j = (blockIdx.y * blockDim.y) + threadIdx.y;
-//	const int index = j * width + i;
-//	torch_data.data()[0][0][i][j] = dev_rgb[index].x;
-//	//torch_data[0][1][i][j] = dev_rgb[index].y;
-//	//torch_data[0][2][i][j] = dev_rgb[index].z;
-//	//torch_data[0][3][i][j] = dev_normal[index].x;
-//	//torch_data[0][4][i][j] = dev_normal[index].y;
-//	//torch_data[0][5][i][j] = dev_normal[index].z;
-//	//torch_data[0][6][i][j] = dev_albedo[index].x;
-//	//torch_data[0][7][i][j] = dev_albedo[index].y;
-//	//torch_data[0][8][i][j] = dev_albedo[index].z;
-//	//torch_data[0][9][i][j] = dev_depth[index];
-//}
 
 __global__ void moveGeom(Geom * geoms, int geoms_size, float dt)
 {
@@ -362,8 +347,7 @@ __global__ void shadeMaterial(
 		ShadeableIntersection intersection = shadeableIntersections[idx];
 		if (intersection.t > 0.0f) { // if the intersection exists...
 		  // Set up the RNG
-		  // LOOK: this is how you use thrust's RNG! Please look at
-		  // makeSeededRandomEngine as well.
+		  // this is how you use thrust's RNG
 			thrust::default_random_engine rng = makeSeededRandomEngine(iter, idx, pathSegments[idx].remainingBounces);
 			thrust::uniform_real_distribution<float> u01(0, 1);
 
@@ -397,16 +381,9 @@ __global__ void shadeMaterial(
 			int y = idx % width; // col
 			int x = idx / width; // row
 			int new_1d = (width - y - 1) + x * width;
-			if (pathSegments[idx].color != glm::vec3(0)) {
-				dev_tensor[num_paths * 7 + new_1d] = pathSegments[idx].color.x; // albedo
-				dev_tensor[num_paths * 8 + new_1d] = pathSegments[idx].color.y; // albedo
-				dev_tensor[num_paths * 9 + new_1d] = pathSegments[idx].color.z; // albedo
-			}
-			else { // this is a hack because the networks was trained like this
-				dev_tensor[num_paths * 7 + new_1d] = 1;
-				dev_tensor[num_paths * 8 + new_1d] = 1;
-				dev_tensor[num_paths * 9 + new_1d] = 1;
-			}
+			dev_tensor[num_paths * 7 + new_1d] = pathSegments[idx].color.x; // albedo
+			dev_tensor[num_paths * 8 + new_1d] = pathSegments[idx].color.y; // albedo
+			dev_tensor[num_paths * 9 + new_1d] = pathSegments[idx].color.z; // albedo
 		}
 	}
 	
@@ -506,14 +483,11 @@ void pathtrace(uchar4 *pbo, int frame, int iter) {
 		cudaDeviceSynchronize();
 
 
-		// TODO:
 		// --- Shading Stage ---
 		// Shade path segments based on intersections and generate new rays by
 	  // evaluating the BSDF.
 	  // Start off with just a big kernel that handles all the different
 	  // materials you have in the scenefile.
-	  // TODO: compare between directly shading the path segments and shading
-	  // path segments that have been reshuffled to be contiguous in memory.
 
 		shadeMaterial << <numblocksPathSegmentTracing, blockSize1d >> > (
 			iter,
@@ -542,9 +516,6 @@ void pathtrace(uchar4 *pbo, int frame, int iter) {
 	dim3 numBlocksPixels = (pixelcount + blockSize1d - 1) / blockSize1d;
 	finalGather <<<numBlocksPixels, blockSize1d >> > (num_paths, dev_image, dev_paths);
 
-	///////////////////////////////////////////////////////////////////////////
-	/// Try to pass through the network
-	
 	///////////////////////////////////////////////////////////////////////////
 	// Send results to OpenGL buffer for rendering
 	sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_image);
