@@ -41,34 +41,17 @@ The idea of a path tracer is to simulate the effect light and materials have on 
 
 ## Cornell Box
 
-<img src="./imgs/REFERENCE_cornell.5000samp.png" width="200" height="200">
+ <div style="text-align:center"><img src="./imgs/REFERENCE_cornell.5000samp.png" width="200" height="200">
 
 The Cornell box is a simple stage, consisting of 5 diffusive walls (1 red, 1 green and the other 3 white). In the above sample, a diffusive sphere.
 
-### Effect of depth on a render
 
-To show the effect of depth on the render, We decided to render a reflective intensive scene. 2 of the walls (red and green) and 6 orbs are reflective, 2 light sources (one is the middle orb), 2 transparent (green) orbs and 1 orb(blue) + 3 walls are diffusive. Because of this setup, the number of remaining rays doesn't reach 0 by a depth of 8, meaning there can be a further improvement (in deeper reflections).
-
-
-| Depth | Render                   | Comment                                                      |
-| ----- | ------------------------ | ------------------------------------------------------------ |
-| 1     | <img src="./imgs/depth/1.png" width="150" height="150"> | For this render, we see no reflections at all. The no path tracing case. AKA albedos |
-| 2     | <img src="./imgs/depth/2.png" width="150" height="150">  |
-| 3     | <img src="./imgs/depth/3.png" width="150" height="150">  |
-| 4     | <img src="./imgs/depth/4.png" width="150" height="150">  |
-| 5     | <img src="./imgs/depth/5.png" width="150" height="150">  | The reflections of the orbs have some transparency.          |
-| 6     | <img src="./imgs/depth/6.png" width="150" height="150"> | The reflection of the transparent orbs isn't transparent.    |
-| 7     | <img src="./imgs/depth/7.png" width="150" height="150"> | The difference is subtle, but is shows up in the 3rd order reflections |
-| 8     | <img src="./imgs/depth/8.png" width="150" height="150">  | We can keep going, but here is a good stopping point.        |
-
- 
 
 ### Effect of iterations on a render
 
 To see the effect of iterations on render quality, we went with the same image we used above (with a depth of 8) to test the effect of iteration on render for a semi-complex scene. From visual inspection, 2000 seems to be the tipping point, and further iterations have diminishing value. So for data generation, we chose to use 2500 samples per pixel images as the ground truth. 
 
  
-
 | Iterations | Render                    |
 | ---------- | ------------------------- |
 | 50         | <img src="./imgs/iter/50.png" width="150" height="150">   |
