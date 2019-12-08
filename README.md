@@ -72,16 +72,16 @@ The idea of a path tracer is to simulate the effect light and materials have on 
 * The output of requisite intermediate buffers
 
 ## Cornell Box
-
- <div style="text-align:center"><img src="./imgs/REFERENCE_cornell.5000samp.png" width="400" height="400">
-
+<p align="center">
+ <img src="./imgs/REFERENCE_cornell.5000samp.png" width="400" height="400">
+</p>
 The Cornell box is a simple stage, consisting of 5 diffusive walls (1 red, 1 green and the other 3 white). In the above sample, a diffusive sphere.
 
 
 ### Effect of iterations on a render
 
 To see the effect of iterations on render quality, we went with the same image we used above (with a depth of 8) to test the effect of iteration on render for a semi-complex scene. From visual inspection, 2000 seems to be the tipping point, and further iterations have diminishing value. So for data generation, we chose to use 2500 samples per pixel images as the ground truth. 
-<div style="text-align:center"><img src="./imgs/depth.gif" width="400" height="400">
+<p align="center"><img src="./imgs/depth.gif" width="400" height="400"></p>
 
 ## Data Generation pipeline
 
@@ -90,13 +90,13 @@ To see the effect of iterations on render quality, we went with the same image w
 One of the core objectives of this project is to denoise temporal data. This means that the camera moves **smoothly** through the scene and for each frame, we generate the requisite inputs. 
 
 So the data generation, we had the camera move around the scene. For each scene, we generated an average of 300 frames of motion and 2 different motions of the camera (pan left-right and pan up-down). Then we generated 5 different versions of the 1 sample per pixel inputs. This was done to allow the network to identify the noise. The total amount of data generated was around 200 gigabytes, and only a subset could be uploaded.
-<div style="text-align:center"><img src="./imgs/motion.gif" width="400" height="400">
+<p align="center"><img src="./imgs/motion.gif" width="400" height="400"></p>
 
 ### Components
 
  To generate training data, we used the path tracer to output the albedos, depth maps, 1 sample per pixel and the normals for each surface for each frame in a movement. This results in a total of 10 channels (It is possible to store the normals as only 2 channels but was not done for this project, because a png has either 3 or 4 channels per image). The images were written to the disk using STB write png. Because all the values are float values, for data storage, we scaled all the outputs to make the range between 0 and 255. While training the network, the data is unscaled. This allowed for saving of space (not required to write cv float arrays to disk) while having a discretization effect on the data. 
 
-![](./imgs/data_gen.gif)
+<p align="center"><img src="./imgs/data_gen.gif"></p>
 
 ### Python processing
 
@@ -106,7 +106,7 @@ After the data was generated in C++ and written to images, we used Numpy to perf
 
 ### Architecture
 
-![](./imgs/architecture.png)
+<p align="center"><img src="./imgs/architecture.png"></p>
 
 The architecture used here is a Recurrent Autoencoder with Skip connections, TL;DR it is recurrent because data is temporal, autoencoder because we need to reconstruct images from some internal representation and skip connections help the network go deeper and fix the vanishing/exploding gradient problem.
 
@@ -126,7 +126,7 @@ In order to retain temporal features at multiple scales, fully convolutional blo
 Since the signal is sparser in the encoder than the decoder it is efficient to use recurrence only in the encoder and not the decoder. Each recurrent block consists of three convolution layers with a 3 × 3-pixel spatial support. One layer processes the input features from the previous layer of the encoder. It then concatenates the results with the features from the previous hidden state and passes it through two remaining convolution layers. The result becomes both the new hidden state and the output of the recurrent block. This provides a sufficient temporal receptive field and, together with the multi-scale cascade of such recurrent blocks, allows to efficiently track and retain image features temporally at multiple scales. The convolution layers in a recurrent block operate on the same input resolution and the same number of features as the encoding stage it is attached to. Formally, the output and the hidden state can be represented using a recurrent equation:
 
 
-![](./imgs/equation.png)
+<p align="center"><img src="./imgs/equation.png"></p>
 
 #### Loss
 
@@ -136,39 +136,39 @@ A loss function defines how the error between network outputs and training targe
 
 The most commonly used loss function in image restoration is mean square error loss. However, it has been observed that using an L1 loss instead of L2 can reduce the splotchy artefacts from reconstructed images. 
 
-![](./imgs/l1_loss.png)
+<p align="center"><img src="./imgs/l1_loss.png"></p>
 
-![](./imgs/l1.png)
+<p align="center"><img src="./imgs/l1.png"></p>
 
 ##### Gradient Domain L1 Loss
 
 The L1 spatial loss provides a good overall image metric that is tolerant of outliers. In order to further penalize the difference in finer details like edges, we also use gradient-domain L1 loss
 
 
-![](./imgs/hfen.png)
+<p align="center"><img src="./imgs/hfen.png"></p>
 
 
 where each gradient is computed using a High-Frequency Error Norm (HFEN), an image comparison metric. The metric uses a Laplacian of Gaussian kernel for edge-detection. The Laplacian works to detect edges, but is sensitive to noise, so the image is pre-smoothed with a Gaussian filter first to make edge-detection work better.
 
-![](./imgs/hfen_pic.png)
+<p align="center"><img src="./imgs/hfen_pic.png"></p>
 
 ##### Temporal Loss
 
 These losses minimize the error of each image in isolation. However, they do not penalize temporal incoherence and neither do they encourage the optimizer to train the recurrent connections to pass more data across frames. So along with the other two losses, a temporal L1 loss is used.
 
-![](./imgs/temporal.png)
+ <p align="center"><img src="./imgs/temporal.png"/></p>
 
 where the temporal derivative for an ith pixel image is computed using finite differencing in time between the ith pixels of the current and the previous image in the temporal training sequence.
 
 The final loss is a weighted combination of these three losses as a final training loss.
 
-![](./imgs/weighted_avg.png)
+ <p align="center"><img src="./imgs/weighted_avg.png"/></p>
 
 where ws, wg and wt are picked as 0.8,0.1,0.1 respectively. It was important to assign a higher weight to the loss functions of frames later in the sequence to amplify temporal gradients, and thus incentivize the temporal training of RNN blocks. A Gaussian curve to modulate ws/g/t: for a sequence of 7 images was used with values (0.011, 0.044, 0.135, 0.325, 0.607, 0.882, 1).
 
 ### Scaling
 Loading all the data into the network quickly becomes a problem because of the size of the images. To allow for faster training, we had to split the images into smaller crops, i.e for each image we created a random crop of 255x255 and used that for that epoch. During inference, because the architecture is purely convolutional, we can infer on the entire resolution.
- <div style="text-align:center"><img src="./imgs/crop.png" width="400" height="400">
+ <p align="center"><img src="./imgs/crop.png" width="400" height="400"></p>
 
 
 ## Realtime Architecture
