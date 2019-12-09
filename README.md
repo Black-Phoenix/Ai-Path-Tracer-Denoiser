@@ -145,7 +145,6 @@ The L1 spatial loss provides a good overall image metric that is tolerant of out
 
 
 <p align="center"><img src="./imgs/hfen.png" height="75"></p>
-
 where each gradient is computed using a High-Frequency Error Norm (HFEN), an image comparison metric. The metric uses a Laplacian of Gaussian kernel for edge-detection. The Laplacian works to detect edges, but is sensitive to noise, so the image is pre-smoothed with a Gaussian filter first to make edge-detection work better.
 
 <p align="center"><img src="./imgs/hfen_pic.png"></p>
@@ -161,10 +160,25 @@ The final loss is a weighted combination of these three losses as a final traini
  <p align="center"><img src="./imgs/weighted_avg.png" height="75"/></p>
 where ws, wg and wt are picked as 0.8,0.1,0.1 respectively. It was important to assign a higher weight to the loss functions of frames later in the sequence to amplify temporal gradients, and thus incentivize the temporal training of RNN blocks. A Gaussian curve to modulate ws/g/t: for a sequence of 7 images was used with values (0.011, 0.044, 0.135, 0.325, 0.607, 0.882, 1).
 
+
+
+#### Loss Plots
+
+##### HFEN Loss
+
+ <p align="center"><img src="./imgs/loss/hfen_plot.png" height="100"/></p>
+##### L1 Loss
+
+ <p align="center"><img src="./imgs/loss/L1_loss_.png" height="100"/></p>
+##### Temporal Loss
+
+ <p align="center"><img src="./imgs/loss/temporal_loss_.png" height="100"/></p>
+##### Total Loss
+
+ <p align="center"><img src="./imgs/loss/Total_Loss.png" height="100"/></p>
 ### Scaling
 Loading all the data into the network quickly becomes a problem because of the size of the images. To allow for faster training, we had to split the images into smaller crops, i.e for each image we created a random crop of 255x255 and used that for that epoch. During inference, because the architecture is purely convolutional, we can infer on the entire resolution.
  <p align="center"><img src="./imgs/crop.png" width="400" height="400"></p>
-
 ## Realtime Architecture
 
 Once we have a trained network, we use the PyTorch to export the network into a c++ readable model using TorchScript. Once this is done, we can load the model and pass the network a tensor to infer on. Because of the way functions are implemented in the C++ Torch lib, the code wasn't able to be compiled with nvcc. So the inference and subsequent visualization was done using OpenCV imshow. This is definitely not the most efficient way to show the frames but was sufficient to get a usable framerate output.
