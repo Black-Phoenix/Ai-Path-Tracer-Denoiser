@@ -235,7 +235,7 @@ The second approach was a much cleaner approach, using only float arrays and dir
 
 ## Code Structure
 
-* Data Generation - On a separate branch ([link]())
+* Data Generation - On a separate branch ([link](https://github.com/Black-Phoenix/Ai-Path-Tracer-Denoiser/tree/data_gen))
   * Build using only opencv (similar to the steps above)
 * Training - In Training
   * 
